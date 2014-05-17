@@ -1,27 +1,36 @@
-var ERROR_LOG_TAG = "[ERROR]: ";
-var gl;
+var gl                            = null;
+var leaf                          = {};
 
-function esInit(canvas) {
+leaf.tag                          = {};
+leaf.tag.ERROR                    = "[240]: "; /// Log Errors
+leaf.tag.WARNING                  = "[220]: "; /// Log Warnings
+leaf.tag.LOG                      = "[210]: "; /// Log Notes
+
+leaf.shaderProgram                = null;
+leaf.mvMatrix                     = mat4.create();
+leaf.pMatrix                      = mat4.create();
+leaf.triangleVertexPositionBuffer = null;
+
+leaf.init = function(canvas) {
     try {
         gl = canvas.getContext("experimental-webgl")
-        gl.viewport_width = canvas.width;
-        gl.viewport_height = canvas.height;
+        gl.viewportWidth = canvas.width;
+        gl.viewportHeight = canvas.height;
     } catch (e) { }
 
     if (!gl) {
-        console.log(ERROR_LOG_TAG + "Unable to initialize WebGL.");
+        console.log(this.tag.ERROR + "Unable to initialize WebGL.");
     }
 }
 
-function esGetShader(gl, id) {
-    var shader_id = document.getElementById(id);
-    if (!shader_id) {
+leaf.getShader = function(gl, id) {
+    var shaderSource = document.getElementById(id);
+    if (!shaderSource) {
         return null;
     }
 
     var str = "";
-
-    var k = shader_id.firstChild;
+    var k = shaderSource.firstChild;
     while (k) {
         if (k.nodeType == 3) {
             str += k.textContent;
@@ -31,9 +40,9 @@ function esGetShader(gl, id) {
     }
 
     var shader;
-    if (shader_id.type == "x-shader/x-fragment") {
+    if (shaderSource.type == "x-shader/x-fragment") {
         shader = gl.createShader(gl.FRAGMENT_SHADER);
-    } else if (shader_id.type == "x-shader/x-vertex") {
+    } else if (shaderSource.type == "x-shader/x-vertex") {
         shader = gl.createShader(gl.VERTEX_SHADER);
     } else {
         return null;
@@ -43,85 +52,77 @@ function esGetShader(gl, id) {
     gl.compileShader(shader);
 
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        console.log(ERROR_LOG_TAG + gl.getShaderInfoLog(shader));
+        console.log(this.tag.ERROR + gl.getShaderInfoLog(shader));
         return null;
     }
 
     return shader;
 }
 
-var shader_program;
-function esInitShaders() {
-    var f_shader = esGetShader(gl, "shader-fs");
-    var v_shader = esGetShader(gl, "shader-vs");
+leaf.initShaders = function() {
+    var fragmentShader = leaf.getShader(gl, "shader-fs");
+    var vertexShader = leaf.getShader(gl, "shader-vs");
 
-    shader_program = gl.createProgram();
-    gl.attachShader(shader_program, v_shader);
-    gl.attachShader(shader_program, f_shader);
-    gl.linkProgram(shader_program);
+    this.shaderProgram = gl.createProgram();
+    gl.attachShader(this.shaderProgram, vertexShader);
+    gl.attachShader(this.shaderProgram, fragmentShader);
+    gl.linkProgram(this.shaderProgram);
 
-    if (!gl.getProgramParameter(shader_program, gl.LINK_STATUS)) {
-        console.log(ERROR_LOG_TAG + "Could not initialize shaders.");
-        console.log(ERROR_LOG_TAG + gl.getProgramInfoLog(shader_program));
+    if (!gl.getProgramParameter(this.shaderProgram, gl.LINK_STATUS)) {
+        console.log(this.tag.ERROR + "Could not initialize shaders.");
+        console.log(this.tag.ERROR + gl.getProgramInfoLog(this.shaderProgram));
     }
 
-    gl.useProgram(shader_program);
-    shader_program.vertexPositionAttribute = gl.getAttribLocation(shader_program, "aVertexPosition");
-    gl.enableVertexAttribArray(shader_program.vertexPositionAttribute);
+    gl.useProgram(this.shaderProgram);
+    this.shaderProgram.vertexPositionAttribute = gl.getAttribLocation(this.shaderProgram, "aVertexPosition");
+    gl.enableVertexAttribArray(this.shaderProgram.vertexPositionAttribute);
 
-    shader_program.p_matrix_uniform = gl.getUniformLocation(shader_program, "uPMatrix");
-    shader_program.mv_matrix_uniform = gl.getUniformLocation(shader_program, "uMVMatrix");
+    this.shaderProgram.pMatrix_uniform = gl.getUniformLocation(this.shaderProgram, "uPMatrix");
+    this.shaderProgram.mvMatrix_uniform = gl.getUniformLocation(this.shaderProgram, "uMVMatrix");
 }
 
-var mv_matrix = mat4.create();
-var p_matrix = mat4.create();
-
-function esSetMatrixUniforms() {
-    gl.uniformMatrix4fv(shader_program.p_matrix_uniform, false, p_matrix);
-    gl.uniformMatrix4fv(shader_program.mv_matrix_uniform, false, mv_matrix);
+leaf.setMatrixUniforms = function() {
+    gl.uniformMatrix4fv(this.shaderProgram.pMatrix_uniform, false, this.pMatrix);
+    gl.uniformMatrix4fv(this.shaderProgram.mvMatrix_uniform, false, this.mvMatrix);
 }
 
-var triangle_vertex_position_buffer;
-var square_vertex_position_buffer;
-
-function esInitBuffers() {
-    triangle_vertex_position_buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, triangle_vertex_position_buffer);
+leaf.initBuffers = function() {
+    this.triangleVertexPositionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.triangleVertexPositionBuffer);
     var vertices = [
          0.0,  1.0,  0.0,
         -1.0, -1.0,  0.0,
          1.0, -1.0,  0.0
     ];
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-    triangle_vertex_position_buffer.itemSize = 3;
-    triangle_vertex_position_buffer.numItems = 3;
+    this.triangleVertexPositionBuffer.itemSize = 3;
+    this.triangleVertexPositionBuffer.numItems = 3;
 }
 
-function esDrawScene() {
-    gl.viewport(0, 0, gl.viewport_width, gl.viewport_height);
+leaf.drawScene = function() {
+    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    mat4.perspective(45, gl.viewport_width / gl.viewport_height, 0.1, 100.0, p_matrix);
-    mat4.identity(mv_matrix);
+    mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, this.pMatrix);
+    mat4.identity(this.mvMatrix);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, triangle_vertex_position_buffer);
-    gl.vertexAttribPointer(shader_program.vertexPositionAttribute, triangle_vertex_position_buffer.itemSize, gl.FLOAT, false, 0, 0);
-    esSetMatrixUniforms();
-    gl.drawArrays(gl.TRIANGLES, 0, triangle_vertex_position_buffer.numItems);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.triangleVertexPositionBuffer);
+    gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, this.triangleVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+    this.setMatrixUniforms();
+    gl.drawArrays(gl.TRIANGLES, 0, this.triangleVertexPositionBuffer.numItems);
 }
 
-function main() {
+leaf.main = function() {
     var canvas = document.getElementById("my-canvas");
-    esInit(canvas);
-    esInitShaders();
-    esInitBuffers();
+    this.init(canvas);
+    this.initShaders();
+    this.initBuffers();
 
     if (gl) {
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.enable(gl.DEPTH_TEST);
 
-        esDrawScene();
+        this.drawScene();
     }
 }
-
 
