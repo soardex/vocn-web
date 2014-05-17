@@ -1,14 +1,31 @@
 <!DOCTYPE HTML>
 <html>
-	<head>
-		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-		<title>WebGL ES</title>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <title>WebGL ES</title>
 
-		<script type="text/javascript" src="voc-user.js"></script>
-	</head>
-	<body onload="main()">
-		<canvas id="my-canvas" width="640" height="480">
-			Your browser doesn't apper to support HTML5 <code>&lt;canvas&gt;</code> element.
-		</canvas>
-	</body>
+        <script type="text/javascript" src="bower_components/gl-matrix/dist/gl-matrix.js"></script>
+        <script type="x-shader/x-fragment" id="shader-fs">
+            precision mediump float;
+
+            void main(void) {
+                gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+            }
+        </script>
+        <script type="x-shader/x-vertex" id="shader-vs">
+            attribute vec3 aVertexPosition;
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+
+            void main(void) {
+                gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+            }
+        </script>
+        <script type="text/javascript" src="voc-user.js"></script>
+    </head>
+    <body onload="main()">
+            <canvas id="my-canvas" width="640" height="480">
+                Your browser doesn't apper to support HTML5 <code>&lt;canvas&gt;</code> element.
+            </canvas>
+    </body>
 </html>
