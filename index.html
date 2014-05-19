@@ -2,24 +2,31 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-        <title>WebGL ES</title>
+        <title>voc - web</title>
 
-        <script type="text/javascript" src="bower_components/jquery/dist/jquery.min.js"></script>
+        <script type="text/javascript" src="bower_components/jquery/dist/jquery.js"></script>
         <script type="text/javascript" src="bower_components/gl-matrix/dist/gl-matrix.js"></script>
         <script type="x-shader/x-fragment" id="shader-fs">
             precision mediump float;
 
+            varying vec4 vColor;
+
             void main(void) {
-                gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+                gl_FragColor = vColor;
             }
         </script>
         <script type="x-shader/x-vertex" id="shader-vs">
             attribute vec3 aVertexPosition;
+            attribute vec4 aVertexColor;
+
             uniform mat4 uMVMatrix;
             uniform mat4 uPMatrix;
 
+            varying vec4 vColor;
+
             void main(void) {
                 gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+                vColor = aVertexColor;
             }
         </script>
         <script type="text/javascript" src="assets/js/voc-user.js"></script>
