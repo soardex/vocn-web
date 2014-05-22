@@ -1,4 +1,4 @@
-var gl = null;
+var gl;
 var jLeaf = {
     tag: {
         LOG     : "[220] : ",
@@ -210,7 +210,9 @@ jLeaf.init = function(canvas) {
 
         gl.viewportWidth = canvas.width;
         gl.viewportHeight = canvas.height;
-    } catch (e) { }
+    } catch (e) {
+        jLeaf.log(jLeaf.tag.ERROR, "Description: " + e.message);
+    }
 
     if (gl === null) {
         jLeaf.log(jLeaf.tag.ERROR, "Unable to initialize WebGL.");
@@ -622,7 +624,7 @@ jLeaf.animate = function() {
 };
 
 jLeaf.main = function() {
-    var canvas = document.getElementById("dcanvas");
+    var canvas = document.getElementById("my-canvas");
     jLeaf.init(canvas);
     jLeaf.initShaders();
     jLeaf.initBuffers();
