@@ -551,7 +551,7 @@ jLeaf.drawScene = function() {
     gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    mat4.perspective(45.0, gl.viewportWidth / gl.viewportHeight, 0.001, 1000.0, jLeaf.pMatrix);
+    mat4.perspective(45.0, gl.viewportWidth / gl.viewportHeight, 0.1, 1000.0, jLeaf.pMatrix);
     mat4.lookAt(jLeaf.vMatrix,
                 [ 0.0,  0.0,  3.0],
                 [ 0.0,  0.0, -5.0],
@@ -563,10 +563,18 @@ jLeaf.drawScene = function() {
     gl.useProgram(jLeaf.shader.programs[0]);
 
     jLeaf.push();
-    mat4.scale(jLeaf.mvMatrix, jLeaf.mvMatrix, [1.0, 1.0, 1.0]);
-    mat4.translate(jLeaf.mvMatrix, jLeaf.mvMatrix, [0.0, 0.0, 0.0]);
-    mat4.rotate(jLeaf.mvMatrix, jLeaf.mvMatrix, jLeaf.degToRad(jLeaf.myRotY), [0.0, 1.0, 0.0]);
+    var x = 0.0, y = 0.0, z = 0.0;
+    var position = [
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        x, y, z, 1,
+    ];
+
+    mat4.multiply(jLeaf.mvMatrix, jLeaf.mvMatrix, position);
+
     mat4.rotate(jLeaf.mvMatrix, jLeaf.mvMatrix, jLeaf.degToRad(jLeaf.myRotX), [1.0, 0.0, 0.0]);
+    mat4.rotate(jLeaf.mvMatrix, jLeaf.mvMatrix, jLeaf.degToRad(jLeaf.myRotY), [0.0, 1.0, 0.0]);
     jLeaf.setMatrixUniforms();
 
     gl.bindBuffer(gl.ARRAY_BUFFER, jLeaf.cubeVertexPositionBuffer);
@@ -588,14 +596,14 @@ jLeaf.drawScene = function() {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, jLeaf.myTexture[0]);
     gl.uniform1i(jLeaf.shader.programs[0].uniforms["uSampler"], 0);
-    gl.uniform3f(jLeaf.shader.programs[0].uniforms["uAmbientColor"], 3.0, 3.0, 3.0);
+    gl.uniform3f(jLeaf.shader.programs[0].uniforms["uAmbientColor"], 0.2, 0.2, 0.2);
 
     var adjustedLightDirection = vec3.create();
-    vec3.normalize([3.0, 3.0, 3.0], adjustedLightDirection);
+    vec3.normalize([0.0, 0.0, 0.0], adjustedLightDirection);
     vec3.scale(adjustedLightDirection, -1);
 
     gl.uniform3fv(jLeaf.shader.programs[0].uniforms["uLightingDirection"], adjustedLightDirection);
-    gl.uniform3f(jLeaf.shader.programs[0].uniforms["uDirectionalColor"], 3.0, 3.0, 3.0);
+    gl.uniform3f(jLeaf.shader.programs[0].uniforms["uDirectionalColor"], 0.8, 0.8, 0.8);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, jLeaf.cubeVertexIndexBuffer);
     gl.enableVertexAttribArray(jLeaf.shader.programs[0].attributes["aVertexPosition"]);
