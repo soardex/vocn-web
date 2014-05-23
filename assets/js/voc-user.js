@@ -112,7 +112,7 @@ jLeaf.shaderChunk = {
     ].join("\n"),
     color_fragment: [
         "#ifdef USE_COLOR",
-        "    gl_FragColor = gl_FragColor * vColor;",
+        "    //gl_FragColor = gl_FragColor * vColor;",
         "#endif"
     ].join("\n"),
     color_head_vertex: [
@@ -126,9 +126,9 @@ jLeaf.shaderChunk = {
         "#endif"
     ].join("\n"),
     default_vertex: [
-        "vec4 _MVPosition;",
-        "_MVPosition = uMVMatrix * vec4(aVertexPosition, 1.0);",
-        "gl_Position = uPMatrix * _MVPosition;"
+        "    vec4 _MVPosition;",
+        "    _MVPosition = uMVMatrix * vec4(aVertexPosition, 1.0);",
+        "    gl_Position = uPMatrix * _MVPosition;"
     ].join("\n"),
     texture_head_fragment: [
         "#ifdef USE_TEXTURE",
@@ -177,36 +177,65 @@ jLeaf.shaderCreator = {
             jLeaf.shaderChunk["color_head_vertex"],
             "uniform mat3 uNMatrix;",
             "uniform vec3 uAmbientColor;",
-            "uniform vec3 uLightingDirection;",
-            "uniform vec3 uDirectionalColor;",
+            "#ifdef USE_LIGHTING",
+            "    uniform vec3 uLightingLocation;",
+            "    uniform vec3 uLightingColor;",
+            "#endif",
             "attribute vec3 aVertexNormal;",
-            "varying vec3 vLightWeighting;",
+            "#ifdef USE_LIGHTING",
+            "    varying vec3 vLightWeighting;",
+            "#endif",
             "void main(void) {",
                 jLeaf.shaderChunk["default_vertex"],
                 jLeaf.shaderChunk["texture_vertex"],
                 jLeaf.shaderChunk["color_vertex"],
-
-                "vec3 transformedNormal = uNMatrix * aVertexNormal;",
-                "float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);",
-                "vLightWeighting = uAmbientColor + uDirectionalColor * directionalLightWeighting;",
+            "#ifdef USE_LIGHTING",
+            "    vec3 _TransformedNormal = uNMatrix * aVertexNormal;",
+            "    #if defined(USE_DL)",
+            "        float _LightWeighting = max(dot(_TransformedNormal, uLightingLocation), 0.0);",
+            "        vLightWeighting = uAmbientColor + uLightingColor * _LightWeighting;",
+            "    #elif defined(USE_PL)",
+            "        vec3 _LightDirection = normalize(uLightingLocation - _MVPosition.xyz);",
+            "        float _LightWeighting = max(dot(_TransformedNormal, _LightDirection), 0.0);",
+            "        vLightWeighting = uAmbientColor + uLightingColor * _LightWeighting;",
+            "    #endif",
+            "#endif",
             "}"
         ].join("\n"),
         fragmentShader: [
             jLeaf.shaderChunk["texture_head_fragment"],
             jLeaf.shaderChunk["color_head_fragment"],
-            "varying vec3 vLightWeighting;",
+            "#ifdef USE_LIGHTING",
+            "    varying vec3 vLightWeighting;",
+            "#endif",
             "void main(void) {",
                 jLeaf.shaderChunk["texture_fragment"],
                 jLeaf.shaderChunk["color_fragment"],
+            "#ifdef USE_LIGHTING",
             "   gl_FragColor = vec4(gl_FragColor.rgb * vLightWeighting, gl_FragColor.a);",
+            "#endif",
             "}",
         ].join("\n"),
     },
 };
 
+jLeaf.createContext = function(canvas) {
+    var names = ["webgl", "experimental-webgl", "webkit-3d", "moz-webgl"];
+    var context = null;
+    for (var i = 0, l = names.length; i < l; i++) {
+        try {
+            context = canvas.getContext(names[i]);
+        } catch (e) { }
+
+        if (context) break;
+    }
+
+    return context;
+};
+
 jLeaf.init = function(canvas) {
     try {
-        gl = canvas.getContext("experimental-webgl") || canvas.getContext("webgl");
+        gl = jLeaf.createContext(canvas);
 
         gl.viewportWidth = canvas.width;
         gl.viewportHeight = canvas.height;
@@ -285,7 +314,7 @@ jLeaf.getShaderFromCreator = function(name, type, prefix) {
     }
 
     return shader;
-}
+};
 
 jLeaf.cacheUniformLocations = function(program, identifiers) {
     var uniforms = {};
@@ -322,7 +351,7 @@ jLeaf.setMatrixUniforms = function() {
 
 jLeaf.push = function() {
     var copy = mat4.create();
-    mat4.copy(jLeaf.mvMatrix, copy);
+    mat4.copy(copy, jLeaf.mvMatrix);
     jLeaf.matrixStack.push(copy);
 };
 
@@ -392,10 +421,11 @@ jLeaf.createShaderProgram = function(defines) {
     identifiers = [
         "uPMatrix",
         "uMVMatrix",
+        "uNMatrix",
         "uSampler",
         "uAmbientColor",
-        "uLightingDirection",
-        "uDirectionalColor",
+        "uLightingLocation",
+        "uLightingColor",
     ];
 
     program.uniforms = jLeaf.cacheUniformLocations(program, identifiers);
@@ -403,7 +433,7 @@ jLeaf.createShaderProgram = function(defines) {
 };
 
 jLeaf.initShaders = function() {
-    var defines = ["USE_TEXTURE", "USE_COLOR"];
+    var defines = ["USE_TEXTURE", "USE_COLOR", "USE_LIGHTING", "USE_PL"];
     jLeaf.shader.programs[0] = jLeaf.createShaderProgram(defines);
 };
 
@@ -533,8 +563,9 @@ jLeaf.loadImage = function(id, url) {
                 gl.bindTexture(gl.TEXTURE_2D, texture);
                 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+                gl.generateMipmap(gl.TEXTURE_2D);
                 gl.bindTexture(gl.TEXTURE_2D, null);
         }(id));
     };
@@ -547,34 +578,40 @@ jLeaf.initTextures = function() {
     jLeaf.myTexture[0].image = jLeaf.loadImage(jLeaf.myTexture[0], "assets/images/qrcode.png");
 };
 
+jLeaf.translate = function(mat, vec) {
+    var x = vec[0], y = vec[1], z = vec[2];
+
+    mat[12] = mat[0] * x + mat[4] * y + mat[8] * z + mat[12];
+    mat[13] = mat[1] * x + mat[5] * y + mat[9] * z + mat[13];
+    mat[14] = mat[2] * x + mat[6] * y + mat[10] * z + mat[14];
+    mat[15] = mat[3] * x + mat[7] * y + mat[11] * z + mat[15];
+};
+
 jLeaf.drawScene = function() {
     gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    mat4.perspective(45.0, gl.viewportWidth / gl.viewportHeight, 0.1, 1000.0, jLeaf.pMatrix);
-    mat4.lookAt(jLeaf.vMatrix,
-                [ 0.0,  0.0,  3.0],
-                [ 0.0,  0.0, -5.0],
-                [ 0.0,  1.0,  0.0]);
+    var ratio = gl.viewportWidth / gl.viewportHeight;
+    mat4.perspective(jLeaf.pMatrix, 45.0, ratio, 0.1, 100.0);
+    mat4.lookAt([ 0.0,  0.0,  3.0], //! eye position
+                [ 0.0,  0.0, -5.0], //! point target
+                [ 0.0,  1.0,  0.0], //! vector pointing up
+                jLeaf.vMatrix);
 
-    mat4.identity(jLeaf.mMatrix);
-    mat4.multiply(jLeaf.mvMatrix, jLeaf.vMatrix, jLeaf.mMatrix);
+    mat4.identity(jLeaf.mvMatrix);
+    //mat4.multiply(jLeaf.vMatrix, jLeaf.mMatrix, jLeaf.mvMatrix);
 
     gl.useProgram(jLeaf.shader.programs[0]);
 
+    gl.uniform3fv(jLeaf.shader.programs[0].uniforms["uAmbientColor"], [0.2, 0.2, 0.2]);
+    gl.uniform3fv(jLeaf.shader.programs[0].uniforms["uLightingLocation"], [0.0, 0.0, -10.0]);
+    gl.uniform3fv(jLeaf.shader.programs[0].uniforms["uLightingColor"], [0.8, 0.8, 0.8]);
+
+    jLeaf.translate(jLeaf.mvMatrix, [0.0, 0.0, -10.0]);
     jLeaf.push();
-    var x = 0.0, y = 0.0, z = 0.0;
-    var position = [
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        x, y, z, 1,
-    ];
-
-    mat4.multiply(jLeaf.mvMatrix, jLeaf.mvMatrix, position);
-
-    mat4.rotate(jLeaf.mvMatrix, jLeaf.mvMatrix, jLeaf.degToRad(jLeaf.myRotX), [1.0, 0.0, 0.0]);
     mat4.rotate(jLeaf.mvMatrix, jLeaf.mvMatrix, jLeaf.degToRad(jLeaf.myRotY), [0.0, 1.0, 0.0]);
+    jLeaf.translate(jLeaf.mvMatrix, [5.0, 0.0, 0.0]);
+    mat4.rotate(jLeaf.mvMatrix, jLeaf.mvMatrix, jLeaf.degToRad(jLeaf.myRotX), [1.0, 0.0, 0.0]);
     jLeaf.setMatrixUniforms();
 
     gl.bindBuffer(gl.ARRAY_BUFFER, jLeaf.cubeVertexPositionBuffer);
@@ -596,14 +633,13 @@ jLeaf.drawScene = function() {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, jLeaf.myTexture[0]);
     gl.uniform1i(jLeaf.shader.programs[0].uniforms["uSampler"], 0);
-    gl.uniform3f(jLeaf.shader.programs[0].uniforms["uAmbientColor"], 0.2, 0.2, 0.2);
 
-    var adjustedLightDirection = vec3.create();
-    vec3.normalize([0.0, 0.0, 0.0], adjustedLightDirection);
-    vec3.scale(adjustedLightDirection, -1);
-
-    gl.uniform3fv(jLeaf.shader.programs[0].uniforms["uLightingDirection"], adjustedLightDirection);
-    gl.uniform3f(jLeaf.shader.programs[0].uniforms["uDirectionalColor"], 0.8, 0.8, 0.8);
+    //! TODO: alpha enabled
+    if (false) {
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+        gl.enable(gl.BLEND);
+        gl.disable(gl.DEPTH_TEST);
+    }
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, jLeaf.cubeVertexIndexBuffer);
     gl.enableVertexAttribArray(jLeaf.shader.programs[0].attributes["aVertexPosition"]);
@@ -625,8 +661,8 @@ jLeaf.degToRad = function(a) {
 jLeaf.animate = function() {
     var current = new Date().getTime();
     if (current != jLeaf.myLapseTime) {
-        jLeaf.myRotY += (90 * (current - jLeaf.myLapseTime)) / 1000.0;
-        jLeaf.myRotX += (90 * (current - jLeaf.myLapseTime)) / 1000.0;
+        jLeaf.myRotY += (-30 * (current - jLeaf.myLapseTime)) / 1000.0;
+        jLeaf.myRotX += (30 * (current - jLeaf.myLapseTime)) / 1000.0;
         jLeaf.myLapseTime = current;
     }
 };
@@ -640,9 +676,10 @@ jLeaf.main = function() {
 
     if (gl) {
         gl.clearColor(0.0, 0.7, 0.7, 1.0);
-        gl.disable(gl.BLEND);
+        gl.clearDepth(2.0);
+
         gl.enable(gl.DEPTH_TEST);
-        gl.depthFunc(gl.LEQUAL);
+        gl.depthFunc(gl.LESS);
 
         animLoop();
     }
