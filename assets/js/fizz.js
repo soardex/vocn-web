@@ -682,11 +682,10 @@ jFizz.drawCube = function() {
     gl.uniform3fv(program.uniforms['uLightingLocation'], [0.0, 0.0, -10.0]);
     gl.uniform3fv(program.uniforms['uLightingColor'], [0.8, 0.8, 0.8]);
 
-    jFizz.translate(jFizz.mvMatrix, [0.0, 0.0, -10.0]);
     jFizz.push();
 
+    jFizz.translate(jFizz.mvMatrix, [0.0, 0.0, -1.0]);
     mat4.rotate(jFizz.mvMatrix, jFizz.mvMatrix, jFizz.degToRad(jFizz.myRotY), [0.0, 1.0, 0.0]);
-    jFizz.translate(jFizz.mvMatrix, [5.0, 0.0, 0.0]);
     mat4.rotate(jFizz.mvMatrix, jFizz.mvMatrix, jFizz.degToRad(jFizz.myRotX), [1.0, 0.0, 0.0]);
     jFizz.setMatrixUniforms();
 
