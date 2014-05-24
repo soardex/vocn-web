@@ -1,13 +1,13 @@
 {
     "metadata": {
-        "version": 4,
-        "type": "Geometry"
+        "type": "geometry"
     },
     "attributes": {
-        "faceType": "Triangle",
-        "position": {
+        "faceType": "triangle",
+        "vertices": {
             "itemSize": 3,
             "type": "float",
+            "numItems": 12,
             "content": [
                 -1.0, -1.0, -1.0,
                  1.0, -1.0, -1.0,
@@ -26,6 +26,7 @@
         "colors": {
             "itemSize": 4,
             "type": "float",
+            "numItems": 12,
             "content": [
                 1.0, 0.0, 0.0, 1.0,
                 0.0, 1.0, 0.0, 1.0,
@@ -41,9 +42,10 @@
                 0.0, 1.0, 0.0, 1.0
             ]
         },
-        "normal": {
+        "normals": {
             "itemSize": 3,
             "type": "int",
+            "numItems": 12,
             "content": [
                 -1, -1, -1,
                  1, -1, -1,
@@ -62,6 +64,7 @@
         "uvs": {
             "itemSize": 2,
             "type": "float",
+            "numItems": 12,
             "content": [
                 0.0, 1.0,
                 1.0, 1.0,
@@ -78,24 +81,25 @@
             ]
         },
         "indices": {
-            "itemSize": 2,
+            "itemSize": 3,
             "type": "float",
+            "numItems": 36,
             "content": [
-                0, 0, 2, 1,
-                0, 0, 3, 2,
-                0, 1, 5, 4,
-                0, 1, 2, 5,
-                0, 4, 6, 7,
-                0, 4, 5, 6,
-                0, 7, 3, 0,
-                0, 7, 6, 3,
-                0, 9, 5, 2,
-                0, 9, 8, 5,
-                0, 0, 11, 10,
-                0, 0, 10, 7
+                0, 2, 1,
+                0, 3, 2,
+                1, 5, 4,
+                1, 2, 5,
+                4, 6, 7,
+                4, 5, 6,
+                7, 3, 0,
+                7, 6, 3,
+                9, 5, 2,
+                9, 8, 5,
+                0, 11, 10,
+                0, 10, 7
             ]
         }
-    }
+    },
     "images": [
         {
             "uuid": "D8C14230-E1AE-11E3-8B68-0800200C9A66",
@@ -110,7 +114,7 @@
         {
             "uuid": "EB03C9E0-E1AE-11E3-8B68-0800200C9A66",
             "image": "D8C14230-E1AE-11E3-8B68-0800200C9A66",
-            "wrap": ['repeat', 'repeat'],
+            "wrap": ["repeat", "repeat"],
             "repeat": [2, 2]
         }
     ],
@@ -118,11 +122,10 @@
         {
             "uuid": "4C1316E0-E1B0-11E3-8B68-0800200C9A66",
             "name": "cubeMat",
-            "type": "MeshPhongMaterial",
-            "color": FFFFFFFF,
-            "ambient": FFFFFFFF,
+            "color": 16777215,
+            "ambient": 13421772,
             "emissive": 0,
-            "specular": FFFFFFF,
+            "specular": 16777215,
             "shininess": 30,
             "side": 2,
             "opacity": 1,
