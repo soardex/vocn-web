@@ -1,6 +1,7 @@
 {
     "metadata": {
-        "type": "geometry"
+        "type": "geometry",
+        "face": "triangle"
     },
     "attributes": {
         "faceType": "triangle",

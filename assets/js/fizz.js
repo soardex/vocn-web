@@ -60,7 +60,7 @@ var jFizz = {
     myTexture: [],
     myRotX: 0,
     myRotY: 0,
-    myTransZ: 0,
+    myZoom: 0,
     myAngle: 0,
     myLapseTime: new Date().getTime(),
     myObjects: [],
@@ -112,12 +112,12 @@ function handleKeyUp(event) {
 jFizz.handleKeys = function() {
     //! page up
     if (jFizz.myPressedKeys[33]) {
-        jFizz.myTransZ -= 0.5;
+        jFizz.myZoom -= 0.1;
     }
 
     //! page down
     if (jFizz.myPressedKeys[34]) {
-        jFizz.myTransZ += 0.5;
+        jFizz.myZoom += 0.1;
     }
 };
 
@@ -301,6 +301,8 @@ jFizz.createContext = function(canvas) {
 jFizz.init = function(canvas) {
     try {
         gl = jFizz.createContext(canvas);
+        canvas.width = self.innerWidth;
+        canvas.height = self.innerHeight;
 
         gl.viewportWidth = canvas.width;
         gl.viewportHeight = canvas.height;
@@ -730,7 +732,7 @@ jFizz.drawCube = function() {
 
     jFizz.push();
 
-    jFizz.translate(jFizz.mvMatrix, [0.0, 0.0, jFizz.myTransZ]);
+    jFizz.translate(jFizz.mvMatrix, [0.0, 0.0, jFizz.myZoom]);
     mat4.rotate(jFizz.mvMatrix, jFizz.mvMatrix, jFizz.degToRad(jFizz.myRotY), [0.0, 1.0, 0.0]);
     mat4.rotate(jFizz.mvMatrix, jFizz.mvMatrix, jFizz.degToRad(jFizz.myRotX), [1.0, 0.0, 0.0]);
     jFizz.setMatrixUniforms();
