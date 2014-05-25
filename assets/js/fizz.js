@@ -25,7 +25,7 @@ var jFizz = {
     },
 
     shader: {
-        programs             : [],
+        programs: [],
     },
 
     identifiers: {
@@ -35,13 +35,14 @@ var jFizz = {
             'aVertexTextureCoord',
             'aVertexNormal',
         ],
-
         uniform: [
             'uPMatrix',
             'uMVMatrix',
             'uNMatrix',
+            'uResolution',
             'uDiffuseColor',
             'uOpacity',
+            'uTime',
             'uSampler',
             'uAmbientColor',
             'uLightingLocation',
@@ -49,18 +50,22 @@ var jFizz = {
         ],
     },
 
-    matrixStack                  : [],
-    mvMatrix                     : mat4.create(),
-    mMatrix                      : mat4.create(),
-    vMatrix                      : mat4.create(),
-    pMatrix                      : mat4.create(),
+    matrixStack: [],
+    mvMatrix: mat4.create(),
+    mMatrix: mat4.create(),
+    vMatrix: mat4.create(),
+    pMatrix: mat4.create(),
 
-    myTexture                    : [],
-    myRotX                       : 0,
-    myRotY                       : 0,
-    myAngle                      : 0,
-    myLapseTime                  : new Date().getTime(),
-    myObjects                    : []
+    myKeyboard: null,
+    myTexture: [],
+    myRotX: 0,
+    myRotY: 0,
+    myTransZ: 0,
+    myAngle: 0,
+    myLapseTime: new Date().getTime(),
+    myObjects: [],
+    mySpeed: 30,
+    myPressedKeys: {}
 };
 
 (function() {
@@ -89,13 +94,10 @@ var jFizz = {
             clearTimeout(id);
         };
     }
-
 }());
 
-var currentlyPressedKeys = {};
-
 function handleKeyDown(event) {
-    currentlyPressedKeys[event.keyCode] = true;
+    jFizz.myPressedKeys[event.keyCode] = true;
 
     if (String.fromCharCode(event.keyCode) == 'F') {
         //! TODO: do something...
@@ -103,25 +105,26 @@ function handleKeyDown(event) {
 }
 
 function handleKeyUp(event) {
-    currentlyPressedKeys[event.keyCode] = false;
+    jFizz.myPressedKeys[event.keyCode] = false;
 }
 
-function handleKeys() {
-    if (currentlyPressedKeys[33]) {
-        //! TODO: page up
+jFizz.handleKeys = function() {
+    //! page up
+    if (jFizz.myPressedKeys[33]) {
+        jFizz.myTransZ -= 0.5;
     }
 
-    if (currentlyPressedKeys[34]) {
-        //! TODO: page down
+    //! page down
+    if (jFizz.myPressedKeys[34]) {
+        jFizz.myTransZ += 0.5;
     }
-}
+};
 
 function animLoop() {
-    document.onkeydown = handleKeyDown;
-    document.onkeyup = handleKeyUp;
 
     requestAnimationFrame(animLoop);
 
+    jFizz.handleKeys();
     jFizz.drawScene();
     jFizz.animate();
 }
@@ -194,6 +197,17 @@ jFizz.shaderChunk = {
         '    #endif',
         '#endif'
     ].join('\n'),
+    scanline_head_fragment: [
+        'void effect_scanline() {',
+        '    vec3 col = vec3(0.1, 0.2 * (0.5 + sin(gl_FragCoord.y * 3.1456 + uTime * 3.0)), 0.1);',
+        '    float d = clamp((0.75 + sin(gl_FragCoord.x * 3.1456 + uTime * 1.3) * 0.5), 0.0, 1.0);',
+        '    col += vec3(d * 0.5, d, d * 0.85);',
+        '    gl_FragColor = gl_FragColor * vec4(col, 1.0);',
+        '}',
+    ].join('\n'),
+    scanline_fragment: [
+        '    effect_scanline();',
+    ].join('\n'),
     texture_head_fragment: [
         '#ifdef USE_TEXTURE',
         '    varying vec2 vTextureCoord;',
@@ -219,19 +233,25 @@ jFizz.shaderChunk = {
 jFizz.shaderCreator = {
     'basic': {
         vertexShader: [
+            jFizz.shaderChunk['texture_head_vertex'],
             jFizz.shaderChunk['color_head_vertex'],
+            jFizz.shaderChunk['light_head_vertex'],
             'void main() {',
-                jFizz.shaderChunk['color_vertex'],
                 jFizz.shaderChunk['default_vertex'],
+                jFizz.shaderChunk['texture_vertex'],
+                jFizz.shaderChunk['color_vertex'],
+                jFizz.shaderChunk['light_vertex'],
             '}'
         ].join('\n'),
         fragmentShader: [
-            'uniform vec3 uDiffuse;',
-            'uniform float uOpacity;',
+            jFizz.shaderChunk['texture_head_fragment'],
             jFizz.shaderChunk['color_head_fragment'],
+            jFizz.shaderChunk['light_head_fragment'],
             'void main() {',
-            '   gl_FragColor = vec4(uDiffuse, uOpacity);',
+                jFizz.shaderChunk['default_fragment'],
+                jFizz.shaderChunk['texture_fragment'],
                 jFizz.shaderChunk['color_fragment'],
+                jFizz.shaderChunk['light_fragment'],
             '}'
         ].join('\n')
     },
@@ -251,11 +271,13 @@ jFizz.shaderCreator = {
             jFizz.shaderChunk['texture_head_fragment'],
             jFizz.shaderChunk['color_head_fragment'],
             jFizz.shaderChunk['light_head_fragment'],
+            jFizz.shaderChunk['scanline_head_fragment'],
             'void main(void) {',
                 jFizz.shaderChunk['default_fragment'],
                 jFizz.shaderChunk['texture_fragment'],
                 jFizz.shaderChunk['color_fragment'],
                 jFizz.shaderChunk['light_fragment'],
+                jFizz.shaderChunk['scanline_fragment'],
             '}',
         ].join('\n'),
     },
@@ -444,8 +466,10 @@ jFizz.createShaderProgram = function(defines) {
     var prefix_fragment = [
         'precision mediump float;', '',
         customDefines, '',
+        'uniform vec3 uResolution;',
         'uniform vec3 uDiffuseColor;',
         'uniform float uOpacity;',
+        'uniform float uTime;',
         '#ifdef USE_TEXTURE',
         '   uniform sampler2D uSampler;',
         '#endif',
@@ -472,7 +496,7 @@ jFizz.createShaderProgram = function(defines) {
 };
 
 jFizz.initShaders = function() {
-    var defines = ['USE_LIGHTING', 'USE_COLOR', 'USE_TEXTURE', 'USE_PL'];
+    var defines = ['USE_COLOR', 'USE_TEXTURE', 'USE_PL'];
     jFizz.shader.programs[0] = jFizz.createShaderProgram(defines);
 };
 
@@ -636,8 +660,6 @@ jFizz.translate = function(mat, vec) {
     mat[15] = mat[3] * x + mat[7] * y + mat[11] * z + mat[15];
 };
 
-var initialized = false;
-
 jFizz.drawScene = function() {
     gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -693,8 +715,9 @@ jFizz.drawCube = function() {
     var program = jFizz.shader.programs[0];
 
     gl.useProgram(program);
+    gl.uniform3fv(program.uniforms['uResolution'], [gl.viewportWidth, gl.viewportHeight, 1.0]);
     gl.uniform3fv(program.uniforms['uDiffuseColor'], [1.0, 1.0, 1.0]);
-    gl.uniform1f(program.uniforms['uOpacity'], 0.7);
+    gl.uniform1f(program.uniforms['uOpacity'], 1.0);
 
     gl.uniform3fv(program.uniforms['uAmbientColor'], [0.2, 0.2, 0.2]);
     gl.uniform3fv(program.uniforms['uLightingLocation'], [0.0, 0.0, -10.0]);
@@ -702,7 +725,7 @@ jFizz.drawCube = function() {
 
     jFizz.push();
 
-    jFizz.translate(jFizz.mvMatrix, [0.0, 0.0, -1.0]);
+    jFizz.translate(jFizz.mvMatrix, [0.0, 0.0, jFizz.myTransZ]);
     mat4.rotate(jFizz.mvMatrix, jFizz.mvMatrix, jFizz.degToRad(jFizz.myRotY), [0.0, 1.0, 0.0]);
     mat4.rotate(jFizz.mvMatrix, jFizz.mvMatrix, jFizz.degToRad(jFizz.myRotX), [1.0, 0.0, 0.0]);
     jFizz.setMatrixUniforms();
@@ -731,7 +754,7 @@ jFizz.drawCube = function() {
     }
 
     //! TODO: alpha enabled
-    if (true) {
+    if (false) {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
         gl.enable(gl.BLEND);
         gl.disable(gl.DEPTH_TEST);
@@ -757,11 +780,19 @@ jFizz.degToRad = function(a) {
 };
 
 jFizz.animate = function() {
-    var current = new Date().getTime();
-    if (current != jFizz.myLapseTime) {
-        jFizz.myRotY += (-30 * (current - jFizz.myLapseTime)) / 1000.0;
-        jFizz.myRotX += (30 * (current - jFizz.myLapseTime)) / 1000.0;
-        jFizz.myLapseTime = current;
+    var program = jFizz.shader.programs[0];
+    if (program !== undefined) {
+        var currentTime = new Date().getTime();
+        if (currentTime != jFizz.myLapseTime) {
+            var deltaTime = currentTime - jFizz.myLapseTime;
+            jFizz.myRotY += (jFizz.mySpeed * (deltaTime)) / 1000.0;
+            jFizz.myRotX += (jFizz.mySpeed * (deltaTime)) / 1000.0;
+            jFizz.myLapseTime = currentTime;
+
+            gl.useProgram(program);
+            gl.uniform1f(program.uniforms['uTime'], deltaTime);
+            gl.useProgram(null);
+        }
     }
 };
 
@@ -804,7 +835,6 @@ jFizz.ObjectMesh.prototype = {
 };
 
 jFizz.loadJSONModel = function(url, callback) {
-
     var request = new Request.JSON({
         method: 'GET',
         url: url,
@@ -957,6 +987,9 @@ jFizz.main = function() {
 
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LESS);
+
+        document.onkeydown = handleKeyDown;
+        document.onkeyup = handleKeyUp;
 
         animLoop();
     }
