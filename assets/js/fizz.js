@@ -64,6 +64,7 @@ var jFizz = {
     myAngle: 0,
     myLapseTime: new Date().getTime(),
     myObjects: [],
+    myMaterials: [],
     mySpeed: 30,
     myPressedKeys: {}
 };
@@ -715,13 +716,17 @@ jFizz.drawCube = function() {
     var program = jFizz.shader.programs[0];
 
     gl.useProgram(program);
-    gl.uniform3fv(program.uniforms['uResolution'], [gl.viewportWidth, gl.viewportHeight, 1.0]);
-    gl.uniform3fv(program.uniforms['uDiffuseColor'], [1.0, 1.0, 1.0]);
-    gl.uniform1f(program.uniforms['uOpacity'], 1.0);
+    var diffuse = jFizz.setHex(object.materials[0].diffuse);
+    var ambient = jFizz.setHex(object.materials[0].ambient);
+    var light = jFizz.setHex(object.materials[0].light);
 
-    gl.uniform3fv(program.uniforms['uAmbientColor'], [0.2, 0.2, 0.2]);
+    gl.uniform3fv(program.uniforms['uResolution'], [gl.viewportWidth, gl.viewportHeight, 1.0]);
+    gl.uniform3fv(program.uniforms['uDiffuseColor'], diffuse);
+    gl.uniform1f(program.uniforms['uOpacity'], object.materials[0].opacity);
+
+    gl.uniform3fv(program.uniforms['uAmbientColor'], ambient);
     gl.uniform3fv(program.uniforms['uLightingLocation'], [0.0, 0.0, -10.0]);
-    gl.uniform3fv(program.uniforms['uLightingColor'], [0.8, 0.8, 0.8]);
+    gl.uniform3fv(program.uniforms['uLightingColor'], light);
 
     jFizz.push();
 
@@ -753,8 +758,7 @@ jFizz.drawCube = function() {
         gl.uniform1i(program.uniforms['uSampler'], 0);
     }
 
-    //! TODO: alpha enabled
-    if (false) {
+    if (object.materials[0].transparent) {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
         gl.enable(gl.BLEND);
         gl.disable(gl.DEPTH_TEST);
@@ -834,6 +838,17 @@ jFizz.ObjectMesh.prototype = {
     constructor: jFizz.ObjectMesh,
 };
 
+jFizz.setHex = function(hex) {
+    hex = Math.floor(hex);
+
+    var r, g, b;
+    r = ((hex >> 16 & 255) / 255);
+    g = ((hex >> 8 & 255) / 255);
+    b = ((hex & 255) / 255);
+
+    return [r, g, b];
+};
+
 jFizz.loadJSONModel = function(url, callback) {
     var request = new Request.JSON({
         method: 'GET',
@@ -849,7 +864,7 @@ jFizz.loadJSONModel = function(url, callback) {
 
             if (data.metadata.type == 'geometry') {
                 var result = parse(data);
-                callback(result.geometry);
+                callback(result.geometry, result.materials);
             }
 
             function parse(d) {
@@ -976,8 +991,12 @@ jFizz.main = function() {
     jFizz.initBuffers();
     jFizz.initTextures();
 
-    jFizz.loadJSONModel('assets/models/cube.json', function(geometry) {
+    jFizz.loadJSONModel('assets/models/cube.json', function(geometry, materials) {
         geometry.initialized = false;
+        if (materials !== undefined) {
+            geometry.materials = materials;
+        }
+
         jFizz.myObjects.push(geometry);
     });
 

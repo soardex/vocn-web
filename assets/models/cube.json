@@ -104,10 +104,6 @@
         {
             "uuid": "D8C14230-E1AE-11E3-8B68-0800200C9A66",
             "url": "qrcode.png"
-        },
-        {
-            "uuid": "7BF67550-E1B0-11E3-8B68-0800200C9A66",
-            "url": "qrcode.png"
         }
     ],
     "textures": [
@@ -122,13 +118,14 @@
         {
             "uuid": "4C1316E0-E1B0-11E3-8B68-0800200C9A66",
             "name": "cubeMat",
-            "color": 16777215,
+            "diffuse": 16777215,
             "ambient": 13421772,
+            "light": 3355443,
             "emissive": 0,
             "specular": 16777215,
             "shininess": 30,
             "side": 2,
-            "opacity": 1,
+            "opacity": 1.0,
             "transparent": false,
             "wireframe": false,
             "map": "EB03C9E0-E1AE-11E3-8B68-0800200C9A66"
