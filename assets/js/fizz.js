@@ -74,7 +74,8 @@ var jFizz = {
         eye: vec3.fromValues(0.0, 0.0, 5.0),
         point: vec3.fromValues(0.0, 0.0, -1.0),
         up: vec3.fromValues(0.0, 1.0, 0.0),
-        angle: 0
+        angle: 0,
+        look: 0
     },
 
     myPhysics: {},
@@ -189,24 +190,14 @@ jFizz.handleKeys = function(delta) {
     
     //! KEY_END
     if (jFizz.myEvents.keyboard[35]) {
-        jFizz.myCamera.angle -= speed * (delta / 1000.0);
-        jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.angle);
-        jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
-
-        if (jFizz.myCamera.point[1] == Math.PI || jFizz.myCamera.point[2] == Math.PI) {
-
-        }
+        jFizz.myCamera.look -= speed * (delta / 1000.0);
+        jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.look);
     }
 
     //! KEY_HOME
     if (jFizz.myEvents.keyboard[36]) {
-        jFizz.myCamera.angle += speed * (delta / 1000.0);
-        jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.angle);
-        jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
-
-        if (jFizz.myCamera.point[1] == Math.PI || jFizz.myCamera.point[2] == Math.PI) {
-
-        }
+        jFizz.myCamera.look += speed * (delta / 1000.0);
+        jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.look);
     }
 
     //! KEY_A
@@ -263,13 +254,11 @@ jFizz.handleMouse = function(delta) {
         }
 
         if (jFizz.myEvents.mouse.position.y >= (gl.viewportHeight / 2) + 100) {
-            jFizz.myCamera.angle -= 7.0 * (delta / 1000.0);
-            jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.angle);
-            jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+            jFizz.myCamera.look -= speed * (delta / 1000.0);
+            jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.look);
         } else if (jFizz.myEvents.mouse.position.y < (gl.viewportHeight / 2) - 128) {
-            jFizz.myCamera.angle += 7.0 * (delta / 1000.0);
-            jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.angle);
-            jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+            jFizz.myCamera.look += speed * (delta / 1000.0);
+            jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.look);
         }
     }
 };
