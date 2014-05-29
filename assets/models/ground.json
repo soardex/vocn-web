@@ -1,0 +1,104 @@
+{
+    "metadata": {
+        "type": "geometry",
+        "object": "plane"
+    },
+    "geometries": {
+        "attributes": {
+            "faceType": "triangle",
+            "vertices": {
+                "itemSize": 3,
+                "type": "float",
+                "numItems": 4,
+                "content": [
+                    [
+                         450.0, -450.0,  450.0,
+                         450.0, -450.0, -450.0,
+                        -450.0, -450.0, -450.0,
+                        -450.0, -450.0,  450.0
+                    ]
+                ]
+            },
+            "colors": {
+                "itemSize": 4,
+                "type": "float",
+                "numItems": 12,
+                "content": [
+                    [
+                        1.0, 1.0, 1.0, 1.0,
+                        1.0, 1.0, 1.0, 1.0,
+                        1.0, 1.0, 1.0, 1.0,
+                        1.0, 1.0, 1.0, 1.0
+                    ]
+                ]
+            },
+            "normals": {
+                "itemSize": 3,
+                "type": "int",
+                "numItems": 4,
+                "content": [
+                    [
+                        0, 1, 0,
+                        0, 1, 0,
+                        0, 1, 0,
+                        0, 1, 0
+                    ]
+                ]
+            },
+            "uvs": {
+                "itemSize": 2,
+                "type": "float",
+                "numItems": 4,
+                "content": [
+                    [
+                        0.0, 1.0,
+                        0.0, 0.0,
+                        1.0, 0.0,
+                        1.0, 1.0
+                    ]
+                ]
+            },
+            "indices": {
+                "itemSize": 3,
+                "type": "float",
+                "numItems": 6,
+                "content": [
+                    [0, 2, 1, 0, 3, 2]
+                ]
+            }
+        }
+    },
+    "images": [
+        {
+            "uuid": "D8C14230-E1AE-11E3-8B68-0800200C9A66",
+            "url": "qrcode.png"
+        }
+    ],
+    "textures": [
+        {
+            "uuid": "EB03C9E0-E1AE-11E3-8B68-0800200C9A66",
+            "image": "D8C14230-E1AE-11E3-8B68-0800200C9A66",
+            "wrap": ["repeat", "repeat"],
+            "repeat": [2, 2]
+        }
+    ],
+    "materials": [
+        {
+            "uuid": "4C1316E0-E1B0-11E3-8B68-0800200C9A66",
+            "name": "matGround",
+            "color": {
+                "diffuse": 16777215,
+                "ambient": 13421772,
+                "specular": 16777215,
+                "emissive": 0
+            },
+            "light": 3355443,
+            "shininess": 30,
+            "side": 2,
+            "opacity": 1.0,
+            "transparent": false,
+            "wireframe": false,
+            "map": "EB03C9E0-E1AE-11E3-8B68-0800200C9A66"
+        }
+    ]
+}

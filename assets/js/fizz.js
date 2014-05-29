@@ -19,8 +19,8 @@
 var gl;
 var jFizz = {
     tag: {
-        LOG     : '[220] : ',
-        ERROR   : '[240] : ',
+        LOG: '[220] : ',
+        ERROR: '[240] : ',
         WARNING : '[250] : ',
     },
 
@@ -56,49 +56,71 @@ var jFizz = {
     vMatrix: mat4.create(),
     pMatrix: mat4.create(),
 
-    myKeyboard: null,
     myTexture: [],
     myRotX: 0,
     myRotY: 0,
-    myZoom: 0,
     myAngle: 0,
     myLapseTime: new Date().getTime(),
     myObjects: [],
     myMaterials: [],
     mySpeed: 30,
-    myPressedKeys: {}
+    myAssets: [
+        'assets/models/cube.json',
+        'assets/models/skybox.json',
+        'assets/models/ground.json'
+    ],
+    myZoom: 0,
+    myCamera: {
+        eye: vec3.fromValues(0.0, 0.0, 5.0),
+        point: vec3.fromValues(0.0, 0.0, -1.0),
+        up: vec3.fromValues(0.0, 1.0, 0.0),
+        angle: 0
+    },
+
+    myPhysics: {},
+    myScene: null,
+    myEvents: {
+        keyboard: {},
+        mouse: {
+            position: {
+                x: 0,
+                y: 0
+            },
+            button: false
+        },
+    }
 };
 
 (function() {
     var lastTime = 0;
     var vendors = ['ms', 'moz', 'webkit', 'o'];
-    for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
-        window.requestAnimationFrame = window[vendors[x] + 'RequestAnimationFrame'];
-        window.cancelAnimationFrame = window[vendors[x] + 'CancelAnimationFrame'] ||
-                window[vendors[x] + 'CancelRequestAnimationFrame'];
+    for(var x = 0; x < vendors.length && !self.requestAnimationFrame; ++x) {
+        self.requestAnimationFrame = self[vendors[x] + 'RequestAnimationFrame'];
+        self.cancelAnimationFrame = self[vendors[x] + 'CancelAnimationFrame'] ||
+                self[vendors[x] + 'CancelRequestAnimationFrame'];
     }
 
-    if (!window.requestAnimationFrame) {
-        window.requestAnimationFrame = function(callback, element) {
+    if (!self.requestAnimationFrame) {
+        self.requestAnimationFrame = function(callback, element) {
             var currTime = new Date().getTime();
             var timeToCall = Math.max(0, 16 - (currTime - lastTime));
-            var id = window.setTimeout(function() {
-                callback(currTime + timeToCall); 
+            var id = self.setTimeout(function() {
+                callback(currTime + timeToCall);
             }, timeToCall);
             lastTime = currTime + timeToCall;
             return id;
         };
     }
 
-    if (!window.cancelAnimationFrame) {
-        window.cancelAnimationFrame = function(id) {
+    if (!self.cancelAnimationFrame) {
+        self.cancelAnimationFrame = function(id) {
             clearTimeout(id);
         };
     }
 }());
 
 function handleKeyDown(event) {
-    jFizz.myPressedKeys[event.keyCode] = true;
+    jFizz.myEvents.keyboard[event.keyCode] = true;
 
     if (String.fromCharCode(event.keyCode) == 'F') {
         //! TODO: do something...
@@ -106,26 +128,155 @@ function handleKeyDown(event) {
 }
 
 function handleKeyUp(event) {
-    jFizz.myPressedKeys[event.keyCode] = false;
+    jFizz.myEvents.keyboard[event.keyCode] = false;
 }
 
-jFizz.handleKeys = function() {
-    //! page up
-    if (jFizz.myPressedKeys[33]) {
+function handleMouseDown(event) {
+    jFizz.myEvents.mouse.button = true;
+    jFizz.myEvents.mouse.position.x = event.clientX;
+    jFizz.myEvents.mouse.position.y = event.clientY;
+}
+
+function handleMouseUp(event) {
+    jFizz.myEvents.mouse.button = false;
+}
+
+function handleMouseMove(event) {
+    jFizz.myEvents.mouse.position.x = event.clientX;
+    jFizz.myEvents.mouse.position.y = event.clientY;
+}
+
+jFizz.handleKeys = function(delta) {
+    //! KEY_PAGE_UP
+    if (jFizz.myEvents.keyboard[33]) {
         jFizz.myZoom -= 0.1;
     }
 
-    //! page down
-    if (jFizz.myPressedKeys[34]) {
+    //! KEY_PAGE_DOWN
+    if (jFizz.myEvents.keyboard[34]) {
+        jFizz.myZoom += 0.1;
+    }
+
+    var speed = 10;
+
+    //! KEY_LEFT
+    if (jFizz.myEvents.keyboard[37]) {
+        jFizz.myCamera.angle -= speed * (delta / 1000.0);
+        jFizz.myCamera.point[0] = Math.sin(jFizz.myCamera.angle);
+        jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+    }
+
+    //! KEY_UP
+    if (jFizz.myEvents.keyboard[38]) {
+        jFizz.myCamera.eye[0] += jFizz.myCamera.point[0] * speed * (delta / 1000.0);
+        jFizz.myCamera.eye[1] += jFizz.myCamera.point[1] * speed * (delta / 1000.0);
+        jFizz.myCamera.eye[2] += jFizz.myCamera.point[2] * speed * (delta / 1000.0);
+    }
+
+    //! KEY_RIGHT
+    if (jFizz.myEvents.keyboard[39]) {
+        jFizz.myCamera.angle += speed * (delta / 1000.0);
+        jFizz.myCamera.point[0] = Math.sin(jFizz.myCamera.angle);
+        jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+    }
+
+    //! KEY_DOWN
+    if (jFizz.myEvents.keyboard[40]) {
+        jFizz.myCamera.eye[0] -= jFizz.myCamera.point[0] * speed * (delta / 1000.0);
+        jFizz.myCamera.eye[1] -= jFizz.myCamera.point[1] * speed * (delta / 1000.0);
+        jFizz.myCamera.eye[2] -= jFizz.myCamera.point[2] * speed * (delta / 1000.0);
+    }
+    
+    //! KEY_END
+    if (jFizz.myEvents.keyboard[35]) {
+        jFizz.myCamera.angle -= speed * (delta / 1000.0);
+        jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.angle);
+        jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+
+        if (jFizz.myCamera.point[1] == Math.PI || jFizz.myCamera.point[2] == Math.PI) {
+
+        }
+    }
+
+    //! KEY_HOME
+    if (jFizz.myEvents.keyboard[36]) {
+        jFizz.myCamera.angle += speed * (delta / 1000.0);
+        jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.angle);
+        jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+
+        if (jFizz.myCamera.point[1] == Math.PI || jFizz.myCamera.point[2] == Math.PI) {
+
+        }
+    }
+
+    //! KEY_A
+    if (jFizz.myEvents.keyboard[65]) {
+        jFizz.myZoom -= 0.1;
+    }
+
+    //! KEY_W
+    if (jFizz.myEvents.keyboard[87]) {
+        jFizz.myZoom += 0.1;
+    }
+
+    //! KEY_D
+    if (jFizz.myEvents.keyboard[68]) {
+        jFizz.myZoom -= 0.1;
+    }
+
+    //! KEY_S
+    if (jFizz.myEvents.keyboard[83]) {
+        jFizz.myZoom += 0.1;
+    }
+
+    //! KEY_SPACE
+    if (jFizz.myEvents.keyboard[32]) {
+        jFizz.myZoom += 0.1;
+    }
+
+    //! KEY_ESCAPE
+    if (jFizz.myEvents.keyboard[27]) {
+        jFizz.myZoom += 0.1;
+    }
+
+    //! KEY_P
+    if (jFizz.myEvents.keyboard[80]) {
+        jFizz.myZoom += 0.1;
+    }
+
+    //! KEY_M
+    if (jFizz.myEvents.keyboard[77]) {
         jFizz.myZoom += 0.1;
     }
 };
 
-function animLoop() {
+jFizz.handleMouse = function(delta) {
+    if (jFizz.myEvents.mouse.button) {
+        if (jFizz.myEvents.mouse.position.x >= (gl.viewportWidth / 2) + 128) {
+            jFizz.myCamera.angle += 7.0 * (delta / 1000.0);
+            jFizz.myCamera.point[0] = Math.sin(jFizz.myCamera.angle);
+            jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+        } else if (jFizz.myEvents.mouse.position.x < (gl.viewportWidth / 2) - 128) {
+            jFizz.myCamera.angle -= 7.0 * (delta / 1000.0);
+            jFizz.myCamera.point[0] = Math.sin(jFizz.myCamera.angle);
+            jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+        }
 
+        if (jFizz.myEvents.mouse.position.y >= (gl.viewportHeight / 2) + 100) {
+            jFizz.myCamera.angle -= 7.0 * (delta / 1000.0);
+            jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.angle);
+            jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+        } else if (jFizz.myEvents.mouse.position.y < (gl.viewportHeight / 2) - 128) {
+            jFizz.myCamera.angle += 7.0 * (delta / 1000.0);
+            jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.angle);
+            jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+        }
+    }
+};
+
+function animLoop() {
     requestAnimationFrame(animLoop);
 
-    jFizz.handleKeys();
     jFizz.drawScene();
     jFizz.animate();
 }
@@ -168,7 +319,30 @@ jFizz.shaderChunk = {
         '    gl_Position = uPMatrix * _MVPosition;'
     ].join('\n'),
     default_fragment: [
-        '    gl_FragColor = vec4(uDiffuseColor, uOpacity);',
+        '    gl_FragColor = vec4(uDiffuseColor, uOpacity);'
+    ].join('\n'),
+    fog_head_fragment: [
+        '#ifdef USE_FOG',
+        '    uniform vec3 uFogColor;',
+        '    #ifdef FOG_EXP2',
+        '        uniform float uFogDensity;',
+        '    #else',
+        '        uniform float uFogNear;',
+        '    #endif',
+        '#endif'
+    ].join('\n'),
+    fog_fragment: [
+        '#ifdef USE_FOG',
+        '    float _Depth = gl_FragCoord.z / gl_FragCoord.w;',
+        '    #ifdef FOG_EXP2',
+        '        const float _LOG2 = 1.442695;',
+        '        float _FogFactor = exp2(-uFogDensity * uFogDensity * _Depth * _Depth * _LOG2);',
+        '        _Fogfactor = 1.0 - clamp(_Fogfactor, 0.0, 1.0);',
+        '    #else',
+        '        float _FogFactor = smoothstep(uFogNear, uFogFar, _Depth);',
+        '    #endif',
+        '    gl_FragColor = mix(gl_FragColor, vec4(uFogColor, gl_FragColor.w), _FogFactor);',
+        '#endif'
     ].join('\n'),
     light_head_fragment: [
         '#ifdef USE_LIGHTING',
@@ -177,7 +351,7 @@ jFizz.shaderChunk = {
     ].join('\n'),
     light_fragment: [
         '#ifdef USE_LIGHTING',
-        '   gl_FragColor = vec4(gl_FragColor.rgb * vLightWeighting, gl_FragColor.a);',
+        '    gl_FragColor = vec4(gl_FragColor.rgb * vLightWeighting, gl_FragColor.a);',
         '#endif'
     ].join('\n'),
     light_head_vertex: [
@@ -231,6 +405,18 @@ jFizz.shaderChunk = {
     ].join('\n'),
 };
 
+var extend = {
+    head: [
+        '',
+        ''
+    ].join('\n'),
+    body: [
+        '',
+        ''
+    ].join('\n')
+};
+
+
 jFizz.shaderCreator = {
     'basic': {
         vertexShader: [
@@ -273,14 +459,40 @@ jFizz.shaderCreator = {
             jFizz.shaderChunk['color_head_fragment'],
             jFizz.shaderChunk['light_head_fragment'],
             jFizz.shaderChunk['scanline_head_fragment'],
+            extend.head,
             'void main(void) {',
                 jFizz.shaderChunk['default_fragment'],
                 jFizz.shaderChunk['texture_fragment'],
                 jFizz.shaderChunk['color_fragment'],
                 jFizz.shaderChunk['light_fragment'],
                 jFizz.shaderChunk['scanline_fragment'],
+                extend.body,
             '}',
         ].join('\n'),
+    },
+    'skybox': {
+        vertexShader: [
+            jFizz.shaderChunk['texture_head_vertex'],
+            jFizz.shaderChunk['color_head_vertex'],
+            jFizz.shaderChunk['light_head_vertex'],
+            'void main() {',
+                jFizz.shaderChunk['default_vertex'],
+                jFizz.shaderChunk['texture_vertex'],
+                jFizz.shaderChunk['color_vertex'],
+                jFizz.shaderChunk['light_vertex'],
+            '}'
+        ].join('\n'),
+        fragmentShader: [
+            jFizz.shaderChunk['texture_head_fragment'],
+            jFizz.shaderChunk['color_head_fragment'],
+            jFizz.shaderChunk['light_head_fragment'],
+            'void main() {',
+                jFizz.shaderChunk['default_fragment'],
+                jFizz.shaderChunk['texture_fragment'],
+                jFizz.shaderChunk['color_fragment'],
+                jFizz.shaderChunk['light_fragment'],
+            '}'
+        ].join('\n')
     },
 };
 
@@ -352,15 +564,15 @@ jFizz.getShader = function(id) {
     return shader;
 };
 
-jFizz.getShaderFromCreator = function(name, type, prefix) {
+jFizz.getShaderFactory = function(name, type, prefix) {
     var str = '';
 
     var shader;
     var stype;
-    if (type == 'f') {
+    if (type == 'fragment') {
         shader = gl.createShader(gl.FRAGMENT_SHADER);
         stype = 'fragmentShader';
-    } else if (type == 'v') {
+    } else if (type == 'vertex') {
         shader = gl.createShader(gl.VERTEX_SHADER);
         stype = 'vertexShader';
     } else {
@@ -405,9 +617,7 @@ jFizz.cacheAttributeLocations = function(program, identifiers) {
     return attributes;
 };
 
-jFizz.setMatrixUniforms = function() {
-    var program = jFizz.shader.programs[0];
-
+jFizz.setMatrixUniforms = function(program) {
     gl.uniformMatrix4fv(program.uniforms['uPMatrix'], false, jFizz.pMatrix);
     gl.uniformMatrix4fv(program.uniforms['uMVMatrix'], false, jFizz.mvMatrix);
 
@@ -440,7 +650,7 @@ jFizz.log = function(tag, message) {
     }
 };
 
-jFizz.createShaderProgram = function(defines) {
+jFizz.createShaderProgram = function(name, defines) {
     var customDefines = jFizz.shaderGenerateDefines(defines);
 
     var prefix_vertex = [
@@ -479,8 +689,8 @@ jFizz.createShaderProgram = function(defines) {
         '',
     ].join('\n');
 
-    var fragmentShader = jFizz.getShaderFromCreator('full-basic', 'f', prefix_fragment);
-    var vertexShader = jFizz.getShaderFromCreator('full-basic', 'v', prefix_vertex);
+    var fragmentShader = jFizz.getShaderFactory(name, 'fragment', prefix_fragment);
+    var vertexShader = jFizz.getShaderFactory(name, 'vertex', prefix_vertex);
 
     var program = gl.createProgram();
     gl.attachShader(program, vertexShader);
@@ -500,20 +710,28 @@ jFizz.createShaderProgram = function(defines) {
 
 jFizz.initShaders = function() {
     var defines = ['USE_COLOR', 'USE_TEXTURE', 'USE_PL'];
-    jFizz.shader.programs[0] = jFizz.createShaderProgram(defines);
+    jFizz.shader.programs[0] = jFizz.createShaderProgram('basic', defines);
+    jFizz.shader.programs[1] = jFizz.createShaderProgram('full-basic', defines);
+    jFizz.shader.programs[2] = jFizz.createShaderProgram('skybox', defines);
 };
 
 jFizz.initBuffers = function() {
-    //jFizz.initCubeBuffers();
+    //jFizz.generateCubeBuffer(0);
+    //jFizz.generateSkyDomeBuffer(1);
 };
 
-jFizz.initCubeBuffers = function() {
+jFizz.generateCubeBuffer = function(tid) {
+    var objectCount = jFizz.myScene.objects.length;
     var geometry = new jFizz.ObjectMesh();
-    jFizz.myObjects.push(geometry);
+    jFizz.myScene.objects.push(geometry);
 
-    var object = jFizz.myObjects[0];
-    object.buffers = {};
+    var object = jFizz.myScene.objects[objectCount];
+    object.faceType = gl.TRIANGLES;
+    object.lastTexCount = tid;
+    object.object = 'skydome';
+    object.buffers = [];
 
+    var buffers = {};
     var scale = 1.0 * 0.5;
     var vertices = [
         -scale, -scale, -scale,
@@ -530,11 +748,12 @@ jFizz.initCubeBuffers = function() {
          scale, -scale, -scale
     ];
 
-    object.buffers['vertices'] = gl.createBuffer();
-    object.buffers['vertices'].itemSize = 3;
-    object.buffers['vertices'].numItems = 12;
+    buffers['vertices'] = gl.createBuffer();
+    buffers['vertices'].itemSize = 3;
+    buffers['vertices'].numItems = 12;
+    buffers['vertices'].name = 'vertices';
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, object.buffers['vertices']);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers['vertices']);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
@@ -553,11 +772,12 @@ jFizz.initCubeBuffers = function() {
         0.0, 1.0, 0.0, 1.0
     ];
 
-    object.buffers['colors'] = gl.createBuffer();
-    object.buffers['colors'].itemSize = 4;
-    object.buffers['colors'].numItems = 12;
+    buffers['colors'] = gl.createBuffer();
+    buffers['colors'].itemSize = 4;
+    buffers['colors'].numItems = 12;
+    buffers['colors'].name = 'colors';
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, object.buffers['colors']);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers['colors']);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
@@ -573,14 +793,15 @@ jFizz.initCubeBuffers = function() {
         -1,  1,  1,
         -1,  1, -1,
          1, -1,  1,
-         1, -1, -1,
+         1, -1, -1
     ];
 
-    object.buffers['normals'] = gl.createBuffer();
-    object.buffers['normals'].itemSize = 3;
-    object.buffers['normals'].numItems = 12;
+    buffers['normals'] = gl.createBuffer();
+    buffers['normals'].itemSize = 3;
+    buffers['normals'].numItems = 12;
+    buffers['normals'].name = 'normals';
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, object.buffers['normals']);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers['normals']);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
@@ -599,11 +820,12 @@ jFizz.initCubeBuffers = function() {
         0.0, 0.0
     ];
 
-    object.buffers['uvs'] = gl.createBuffer();
-    object.buffers['uvs'].itemSize = 2;
-    object.buffers['uvs'].numItems = 12;
+    buffers['uvs'] = gl.createBuffer();
+    buffers['uvs'].itemSize = 2;
+    buffers['uvs'].numItems = 12;
+    buffers['uvs'].name = 'uvs';
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, object.buffers['uvs']);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers['uvs']);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
@@ -622,36 +844,238 @@ jFizz.initCubeBuffers = function() {
         0, 10, 7
     ];
 
-    object.buffers['indices'] = gl.createBuffer();
-    object.buffers['indices'].itemSize = 3;
-    object.buffers['indices'].numItems = 36;
+    buffers['indices'] = gl.createBuffer();
+    buffers['indices'].itemSize = 3;
+    buffers['indices'].numItems = 36;
+    buffers['indices'].name = 'indices';
 
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, object.buffers['indices']);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers['indices']);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+    object.buffers[0] = buffers;
+    object.initialized = true;
+
+    object.materials = [
+        {
+            color: {
+                diffuse: 16777215,
+                ambient: 16777215
+            },
+            opacity: 1.0,
+            transparent: false
+        }
+    ];
+};
+
+jFizz.generateSkyDomeBuffer = function(tid) {
+    var objectCount = jFizz.myScene.objects.length;
+    var geometry = new jFizz.ObjectMesh();
+    jFizz.myScene.objects.push(geometry);
+
+    var object = jFizz.myScene.objects[objectCount];
+    object.faceType = gl.TRIANGLES;
+    object.lastTexCount = tid;
+    object.object = 'skydome';
+    object.buffers = [];
+
+    var buffers = {};
+    var horizontalRes = 192.0;
+    var verticalRes = 192.0;
+    var texturePerc = -1.0;
+    var spherePerc = 0.9;
+    var radius = 250.0;
+
+    var azimuth;
+    var azimuthStep = (Math.PI * 2.0) / horizontalRes;
+    if (spherePerc < 0.0)
+        spherePerc = -spherePerc;
+    if (spherePerc > 2.0)
+        spherePerc = 2.0;
+
+    var halfPI = (Math.PI / 2.0);
+    var elevationStep = spherePerc * halfPI / verticalRes;
+
+    var vertices = [], normals = [], uvs = [], colors = [];
+
+    var pos, tcs;
+    var tcV = texturePerc / verticalRes;
+    for (var i = 0, azimuth = 0; i  <= horizontalRes; ++i) {
+        var elevation = halfPI;
+        var tcU = i / horizontalRes;
+        var sinA = Math.sin(azimuth);
+        var cosA = Math.cos(azimuth);
+
+        for (var j = 0; j <= verticalRes; ++j) {
+            var cosEr = radius * Math.cos(elevation);
+            pos = [cosEr * sinA, radius * Math.sin(elevation), cosEr * cosA];
+            tcs = [tcU, j * tcV];
+
+            var n = vec3.create();
+            n = [-pos[0], -pos[1], -pos[2]];
+            vec3.normalize(n, n);
+
+            vertices.push(pos[0]);
+            vertices.push(pos[1]);
+            vertices.push(pos[2]);
+
+            colors.push(1.0);
+            colors.push(1.0);
+            colors.push(1.0);
+            colors.push(1.0);
+
+            normals.push(n[0]);
+            normals.push(n[1]);
+            normals.push(n[2]);
+
+            uvs.push(tcs[0]);
+            uvs.push(tcs[1]);
+
+            elevation -= elevationStep;
+        }
+
+        azimuth += azimuthStep;
+    }
+
+    buffers['vertices'] = gl.createBuffer();
+    buffers['vertices'].itemSize = 3;
+    buffers['vertices'].numItems = 12;
+    buffers['vertices'].name = 'vertices';
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers['vertices']);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    buffers['colors'] = gl.createBuffer();
+    buffers['colors'].itemSize = 4;
+    buffers['colors'].numItems = 12;
+    buffers['colors'].name = 'colors';
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers['colors']);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    buffers['normals'] = gl.createBuffer();
+    buffers['normals'].itemSize = 3;
+    buffers['normals'].numItems = 12;
+    buffers['normals'].name = 'normals';
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers['normals']);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    buffers['uvs'] = gl.createBuffer();
+    buffers['uvs'].itemSize = 2;
+    buffers['uvs'].numItems = 12;
+    buffers['uvs'].name = 'uvs';
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers['uvs']);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    var indices = [];
+    for (var i = 0; i < horizontalRes; ++i) {
+        indices.push(verticalRes + 2 + (verticalRes + 1) * i);
+        indices.push(1 + (verticalRes + 1) * i);
+        indices.push(0 + (verticalRes + 1) * i);
+
+        for (var j = 0; j < verticalRes; ++j) {
+            indices.push(verticalRes + 2 + (verticalRes + 1) * i + j);
+            indices.push(1 + (verticalRes + 1) * i + j);
+            indices.push(0 + (verticalRes + 1) * i + j);
+
+            indices.push(verticalRes + 1 + (verticalRes + 1) * i + j);
+            indices.push(verticalRes + 2 + (verticalRes + 1) * i + j);
+            indices.push(0 + (verticalRes + 1) * i + j);
+        }
+    }
+
+    buffers['indices'] = gl.createBuffer();
+    buffers['indices'].itemSize = 3;
+    buffers['indices'].numItems = indices.length;
+    buffers['indices'].name = 'indices';
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers['indices']);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+    object.buffers[0] = buffers;
+    object.initialized = true;
+
+    object.materials = [
+        {
+            color: {
+                diffuse: 16777215,
+                ambient: 16777215
+            },
+            opacity: 1.0,
+            transparent: false
+        }
+    ];
+
+    //! NOTE: clear stored objects
+    vertices = [],
+    normals = [],
+    uvs = [],
+    colors = [];
+
+};
+
+jFizz.createTexture = function(texture) {
 };
 
 jFizz.loadImage = function(id, url) {
     var image = new Image();
     image.src = url;
     image.onload = function() {
-        (function(texture){
+        handleTexture(id);
+
+        function handleTexture(texture) {
+            if (texture !== undefined) {
                 gl.bindTexture(gl.TEXTURE_2D, texture);
                 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
-                gl.generateMipmap(gl.TEXTURE_2D);
+                if (jFizz.Math.isPowerOfTwo(texture.width) && jFizz.Math.isPowerOfTwo(texture.height)) {
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+
+                    var ext = gl.getExtension( 'EXT_texture_filter_anisotropic' ) ||
+                        gl.getExtension( 'MOZ_EXT_texture_filter_anisotropic' ) ||
+                        gl.getExtension( 'WEBKIT_EXT_texture_filter_anisotropic' );
+                    gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, 6);
+
+                    gl.generateMipmap(gl.TEXTURE_2D);
+                } else {
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                }
                 gl.bindTexture(gl.TEXTURE_2D, null);
-        }(id));
+            }
+        }
     };
 
     return image;
 };
 
+jFizz.loadTexture = function(url) {
+    var id;
+    id = gl.createTexture();
+    id.image = jFizz.loadImage(id, url);
+
+    return id;
+};
+
 jFizz.initTextures = function() {
-    jFizz.myTexture[0] = gl.createTexture();
-    jFizz.myTexture[0].image = jFizz.loadImage(jFizz.myTexture[0], 'assets/images/qrcode.png');
+    jFizz.myTexture[0] = jFizz.loadTexture('assets/images/qrcode.png');
+    jFizz.myTexture[1] = jFizz.loadTexture('assets/images/qrcode.png');
+};
+
+jFizz.initPhysics = function() {
+    var world = new CANNON.World();
+    world.gravity.set(0, -9.87, 0);
+    world.broadphase = new CANNON.NaiveBroadphase();
+
+    jFizz.myPhysics.world = world;
 };
 
 jFizz.translate = function(mat, vec) {
@@ -664,141 +1088,50 @@ jFizz.translate = function(mat, vec) {
 };
 
 jFizz.drawScene = function() {
-    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     var ratio = gl.viewportWidth / gl.viewportHeight;
-    mat4.perspective(jFizz.pMatrix, 45.0, ratio, 0.1, 100.0);
+    mat4.perspective(jFizz.pMatrix, 45.0, ratio, 0.1, 1000.0);
+
+    var point = vec3.create();
+    vec3.add(point, jFizz.myCamera.eye, jFizz.myCamera.point);
+
     mat4.lookAt(jFizz.vMatrix,
-                [ 0.0,  0.0,  3.0],  //! eye position
-                [ 0.0,  0.0, -5.0],  //! point target
-                [ 0.0,  1.0,  0.0]); //! vector pointing up
+                jFizz.myCamera.eye,     //! eye position
+                point,                  //! point target
+                jFizz.myCamera.up);     //! vector pointing up
 
     mat4.identity(jFizz.mMatrix);
     mat4.multiply(jFizz.mvMatrix, jFizz.vMatrix, jFizz.mMatrix);
 
-    if (jFizz.myObjects[0] === undefined) return;
-
-    if (jFizz.myObjects[0].initialized == false) {
-        var object = jFizz.myObjects[0];
-
-        var identifiers = ['vertices', 'colors', 'normals', 'uvs', 'indices'];
-
-        var buffers = {};
-        for (var i = 0, l = identifiers.length; i < l; i++) {
-            var id = identifiers[i];
-            var buffer = gl.createBuffer();
-
-            buffer.itemSize = object.attributes[id].itemSize;
-            buffer.numItems = object.attributes[id].numItems;
-
-            if (id != 'indices') {
-                gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(object.attributes[id]), gl.STATIC_DRAW);
-                gl.bindBuffer(gl.ARRAY_BUFFER, null);
-            } else {
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
-                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(object.attributes[id]), gl.STATIC_DRAW);
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-            }
-
-            buffers[id] = buffer;
-            buffers[id].name = id;
-        }
-
-        object.buffers = buffers;
-        object.initialized = true;
+    for (var i = 0, l = jFizz.myAssets.length; i < l; i++) {
+        if (jFizz.myScene.objects[i] === undefined) return;
     }
 
-    jFizz.drawCube();
+    jFizz.myScene.renderScene();
 };
 
-jFizz.drawCube = function() {
-    var object = jFizz.myObjects[0];
-    var program = jFizz.shader.programs[0];
-
-    gl.useProgram(program);
-    var diffuse = jFizz.setHex(object.materials[0].diffuse);
-    var ambient = jFizz.setHex(object.materials[0].ambient);
-    var light = jFizz.setHex(object.materials[0].light);
-
-    gl.uniform3fv(program.uniforms['uResolution'], [gl.viewportWidth, gl.viewportHeight, 1.0]);
-    gl.uniform3fv(program.uniforms['uDiffuseColor'], diffuse);
-    gl.uniform1f(program.uniforms['uOpacity'], object.materials[0].opacity);
-
-    gl.uniform3fv(program.uniforms['uAmbientColor'], ambient);
-    gl.uniform3fv(program.uniforms['uLightingLocation'], [0.0, 0.0, -10.0]);
-    gl.uniform3fv(program.uniforms['uLightingColor'], light);
-
-    jFizz.push();
-
-    jFizz.translate(jFizz.mvMatrix, [0.0, 0.0, jFizz.myZoom]);
-    mat4.rotate(jFizz.mvMatrix, jFizz.mvMatrix, jFizz.degToRad(jFizz.myRotY), [0.0, 1.0, 0.0]);
-    mat4.rotate(jFizz.mvMatrix, jFizz.mvMatrix, jFizz.degToRad(jFizz.myRotX), [1.0, 0.0, 0.0]);
-    jFizz.setMatrixUniforms();
-
-    var identifiers = ['vertices', 'colors', 'uvs', 'normals'];
-    for (var i = 0, l = jFizz.identifiers['attribute'].length; i < l; i++) {
-        if (identifiers.length != l) {
-            console.log('Uneven');
-            break;
-        }
-        
-        var aid = jFizz.identifiers['attribute'][i];
-        var bid = identifiers[i];
-
-        if (program.attributes[aid] != -1) {
-            gl.bindBuffer(gl.ARRAY_BUFFER, object.buffers[bid]);
-            gl.vertexAttribPointer(program.attributes[aid], object.buffers[bid].itemSize, gl.FLOAT, false, 0, 0);
-            gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        }
-    }
-
-    if (program.attributes['aVertexTextureCoord'] != -1) {
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, jFizz.myTexture[0]);
-        gl.uniform1i(program.uniforms['uSampler'], 0);
-    }
-
-    if (object.materials[0].transparent) {
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-        gl.enable(gl.BLEND);
-        gl.disable(gl.DEPTH_TEST);
-    }
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, object.buffers['indices']);
-    for (var i = 0, l = jFizz.identifiers['attribute'].length; i < l; i++) {
-        var id = jFizz.identifiers['attribute'][i];
-        if (program.attributes[id] != -1) {
-            gl.enableVertexAttribArray(program.attributes[id]);
-        }
-    }
-    gl.drawElements(object.faceType, object.buffers['indices'].numItems, gl.UNSIGNED_SHORT, 0);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
-    jFizz.pop();
-
-    gl.useProgram(null);
-};
-
-jFizz.degToRad = function(a) {
-    return a * Math.PI / 180;
-};
 
 jFizz.animate = function() {
-    var program = jFizz.shader.programs[0];
-    if (program !== undefined) {
-        var currentTime = new Date().getTime();
-        if (currentTime != jFizz.myLapseTime) {
-            var deltaTime = currentTime - jFizz.myLapseTime;
-            jFizz.myRotY += (jFizz.mySpeed * (deltaTime)) / 1000.0;
-            jFizz.myRotX += (jFizz.mySpeed * (deltaTime)) / 1000.0;
-            jFizz.myLapseTime = currentTime;
+    var currentTime = new Date().getTime();
+    if (currentTime != jFizz.myLapseTime) {
+        var deltaTime = currentTime - jFizz.myLapseTime;
+        jFizz.myRotY += (jFizz.mySpeed * (deltaTime)) / 1000.0;
+        jFizz.myRotX += (jFizz.mySpeed * (deltaTime)) / 1000.0;
+        jFizz.myLapseTime = currentTime;
 
-            gl.useProgram(program);
-            gl.uniform1f(program.uniforms['uTime'], deltaTime);
-            gl.useProgram(null);
+        for (var i = 0, l = jFizz.shader.programs.length; i < l; i++) {
+            var program = jFizz.shader.programs[i];
+            if (program !== undefined) {
+                gl.useProgram(program);
+                gl.uniform1f(program.uniforms['uTime'], deltaTime);
+                gl.useProgram(null);
+            }
         }
+
+        jFizz.handleKeys(deltaTime);
+        jFizz.handleMouse(deltaTime);
+        jFizz.myPhysics.world.step(deltaTime);
     }
 };
 
@@ -827,7 +1160,16 @@ jFizz.Math = {
 
             return uuid.join('');
         };
-    }()
+    }(),
+    degToRad: function(a) {
+        return a * Math.PI / 180;
+    },
+    radToDeg: function(a) {
+        return a * 180 / Math.PI;
+    },
+    isPowerOfTwo: function(v) {
+        return (v & (v - 1)) === 0 && v !== 0;
+    }
 };
 
 jFizz.ObjectMesh = function() {
@@ -838,6 +1180,160 @@ jFizz.ObjectMesh = function() {
 
 jFizz.ObjectMesh.prototype = {
     constructor: jFizz.ObjectMesh,
+};
+
+jFizz.ObjectScene = function() {
+    this.uuid = jFizz.Math.generateUUID();
+    this.objects = [];
+};
+
+jFizz.ObjectScene.prototype = {
+    constructor: jFizz.ObjectScene,
+    renderScene: function() {
+
+        for (var k = 0, c = this.objects.length; k < c; k++) {
+            var object = this.objects[k];
+            if (object.initialized == false) {
+                var identifiers = ['vertices', 'colors', 'normals', 'uvs', 'indices'];
+
+                object.buffers = [];
+                object.lastTexCount = jFizz.myTexture.length;
+                for (var n = 0, o = object.textures.length; n < o; n++) {
+                    jFizz.myTexture[object.lastTexCount + n] = jFizz.loadTexture('assets/images/' + object.images[n].url);
+                    
+                    var buffers = {};
+                    for (var i = 0, l = identifiers.length; i < l; i++) {
+                        var id = identifiers[i];
+                        if (object.attributes[id] !== undefined) {
+                            var buffer = gl.createBuffer();
+
+                            buffer.itemSize = object.attributes[id].itemSize;
+                            buffer.numItems = object.attributes[id].numItems;
+
+                            if (id != 'indices') {
+                                gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+                                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(object.attributes[id][n]), gl.STATIC_DRAW);
+                                gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                            } else {
+                                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
+                                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(object.attributes[id][n]), gl.STATIC_DRAW);
+                                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+                            }
+
+                            buffers[id] = buffer;
+                            buffers[id].name = id;
+                        }
+                    }
+                    
+                    object.buffers[n] = buffers;
+                    object.initialized = true;
+
+                    //! NOTE: clear buffers
+                    object.attributes[n] = {};
+                }
+            }
+
+            if (object.object == 'model') {
+                gl.disable(gl.CULL_FACE);
+                this.draw(object, 0);
+                gl.enable(gl.CULL_FACE);
+            } else if (object.object == 'skybox' || object.object == 'skydome') {
+                gl.cullFace(gl.FRONT);
+                this.draw(object, 2);
+                gl.cullFace(gl.BACK);
+            } else {
+                this.draw(object, 0);
+            }
+
+            var identity = mat4.create();
+            mat4.identity(identity);
+            if (object.object == 'plane') {
+                mat4.translate(identity, identity, [0.0, 440.0, 0.0]);
+            } else if (object.object == 'skydome') {
+                mat4.translate(identity, identity, [0.0, -50.0, 0.0]);
+            } else if (object.object == 'model') {
+                mat4.translate(identity, identity, [0.0, 0.0, jFizz.myZoom]);
+                mat4.rotate(identity, identity, jFizz.Math.degToRad(jFizz.myRotX), [1.0, 0.0, 0.0]);
+                mat4.rotate(identity, identity, jFizz.Math.degToRad(jFizz.myRotY), [0.0, 1.0, 0.0]);
+            }
+
+            object.matrix = identity;
+        }
+    },
+    draw: function(object, pid) {
+        var program = jFizz.shader.programs[pid];
+
+        gl.useProgram(program);
+        gl.uniform3fv(program.uniforms['uResolution'], [gl.viewportWidth, gl.viewportHeight, 1.0]);
+
+        for (var n = 0, o = object.buffers.length; n < o; n++) {
+            var buffet = object.buffers[n];
+            var diffuse = jFizz.setHex(object.materials[n].color.diffuse);
+            var ambient = jFizz.setHex(object.materials[n].color.ambient);
+            var opacity = object.materials[n].opacity;
+            var texture = jFizz.myTexture[object.lastTexCount + n];
+            var location = [0.0, 0.0, -10.0];
+            var light = [1.0, 1.0, 10];
+
+            gl.uniform3fv(program.uniforms['uDiffuseColor'], diffuse);
+            gl.uniform1f(program.uniforms['uOpacity'], opacity);
+
+            gl.uniform3fv(program.uniforms['uAmbientColor'], ambient);
+            gl.uniform3fv(program.uniforms['uLightingLocation'], location);
+            gl.uniform3fv(program.uniforms['uLightingColor'], light);
+
+            jFizz.push();
+            if (object.matrix !== undefined) {
+                mat4.multiply(jFizz.mvMatrix, jFizz.mvMatrix, object.matrix);
+            }
+            jFizz.setMatrixUniforms(program);
+
+            var identifiers = ['vertices', 'colors', 'uvs', 'normals'];
+            for (var i = 0, l = jFizz.identifiers['attribute'].length; i < l; i++) {
+
+                if (identifiers.length != l) {
+                    jFizz.log(jFizz.tag.ERROR, 'Identifiers and attributes lengths are not the same.');
+                    break;
+                }
+                
+                var aid = jFizz.identifiers['attribute'][i];
+                var bid = identifiers[i];
+
+                if (program.attributes[aid] != -1) {
+                    if (buffet[bid] !== undefined) {
+                        gl.bindBuffer(gl.ARRAY_BUFFER, buffet[bid]);
+                        gl.vertexAttribPointer(program.attributes[aid], buffet[bid].itemSize, gl.FLOAT, false, 0, 0);
+                        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+                    }
+                }
+            }
+
+            if (program.attributes['aVertexTextureCoord'] != -1) {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, texture);
+                gl.uniform1i(program.uniforms['uSampler'], 0);
+            }
+
+            if (object.materials[0].transparent) {
+                gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+                gl.enable(gl.BLEND);
+                gl.disable(gl.DEPTH_TEST);
+            }
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffet['indices']);
+            for (var i = 0, l = jFizz.identifiers['attribute'].length; i < l; i++) {
+                var id = jFizz.identifiers['attribute'][i];
+                if (program.attributes[id] != -1) {
+                    gl.enableVertexAttribArray(program.attributes[id]);
+                }
+            }
+            gl.drawElements(object.faceType, buffet['indices'].numItems, gl.UNSIGNED_SHORT, 0);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+            jFizz.pop();
+        }
+
+        gl.useProgram(null);
+    },
 };
 
 jFizz.setHex = function(hex) {
@@ -865,100 +1361,83 @@ jFizz.loadJSONModel = function(url, callback) {
         onSuccess: function(data) {
 
             if (data.metadata.type == 'geometry') {
-                var result = parse(data);
+                var result;
+                result = parse(data);
+                switch (data.metadata.object) {
+                    case 'model':
+                        result.geometry.object = 'model';
+                        break;
+                    case 'skybox':
+                        result.geometry.object = 'skybox';
+                        break;
+                    case 'plane':
+                        result.geometry.object = 'plane';
+                        break;
+                }
+
+                result.geometry.images = result.images;
+                result.geometry.textures = result.textures;
                 callback(result.geometry, result.materials);
+            } else if (data.metadata.type == 'sprite') {
+                //! TODO: sprite callback
             }
 
             function parse(d) {
                 var geometry = new jFizz.ObjectMesh();
 
-                var vertices = d.attributes.vertices,
-                    indices = d.attributes.indices,
-                    colors = d.attributes.colors,
-                    normals = d.attributes.normals
+                var vertices = d.geometries.attributes.vertices,
+                    indices = d.geometries.attributes.indices,
+                    colors = d.geometries.attributes.colors,
+                    normals = d.geometries.attributes.normals
                     uvs = null;
 
-                if (d.attributes.uvs !== undefined) {
-                    uvs = d.attributes.uvs;
+                if (d.geometries.attributes.uvs !== undefined) {
+                    uvs = d.geometries.attributes.uvs;
                 }
 
-                if (false) {
-                    for (var i = 0, l = vertices.content.length; i < l;) {
-                        var vertex = vec3.create();
-                        vertex.x = vertices.content[i++];
-                        vertex.y = vertices.content[i++];
-                        vertex.z = vertices.content[i++];
-
-                        geometry.vertices.push(vertex);
-                    }
-
-                    for (var i = 0, l = indices.content.length; i < l;) {
-                        var indice = vec3.create();
-                        indice.x = indices.content[i++];
-                        indice.y = indices.content[i++];
-                        indice.z = indices.content[i++];
-
-                        geometry.indices.push(indice);
-                    }
-
-                    for (var i = 0, l = colors.content.length; i < l;) {
-                        var color = vec4.create();
-                        color.x = colors.content[i++];
-                        color.y = colors.content[i++];
-                        color.z = colors.content[i++];
-                        color.w = colors.content[i++];
-
-                        geometry.colors.push(color);
-                    }
-
-                    for (var i = 0, l = normals.content.length; i < l;) {
-                        var normal = vec3.create();
-                        normal.x = normals.content[i++];
-                        normal.y = normals.content[i++];
-                        normal.z = normals.content[i++];
-
-                        geometry.normals.push(normals.content[i]);
-                    }
-
-                    if (uvs !== undefined) {
-                        for (var i = 0, l = uvs.content.length; i < l;) {
-                            var uv = vec2.create();
-                            uv.x = uvs.content[i++];
-                            uv.y = uvs.content[i++];
-
-                            geometry.uvs.push(uv);
-                        }
-                    }
+                geometry.attributes['vertices'] = {};
+                for (var i = 0, l = vertices.content.length; i < l; i++) {
+                    geometry.attributes['vertices'][i] = vertices.content[i];
                 }
-
-                geometry.attributes['vertices'] = vertices.content;
                 geometry.attributes['vertices'].itemSize = vertices.itemSize;
                 geometry.attributes['vertices'].numItems = vertices.numItems;
 
-                geometry.attributes['indices'] = indices.content;
+                geometry.attributes['indices'] = {};
+                for (var i = 0, l = indices.content.length; i < l; i++) {
+                    geometry.attributes['indices'][i] = indices.content[i];
+                }
                 geometry.attributes['indices'].itemSize = indices.itemSize;
                 geometry.attributes['indices'].numItems = indices.numItems;
 
                 if (colors !== undefined) {
-                    geometry.attributes['colors'] = colors.content;
+                    geometry.attributes['colors'] = {};
+                    for (var i = 0, l = colors.content.length; i < l; i++) {
+                        geometry.attributes['colors'][i] = colors.content[i];
+                    }
                     geometry.attributes['colors'].itemSize = colors.itemSize;
                     geometry.attributes['colors'].numItems = colors.numItems;
                 }
 
                 if (normals !== undefined) {
-                    geometry.attributes['normals'] = normals.content;
+                    geometry.attributes['normals'] = {};
+                    for (var i = 0, l = normals.content.length; i < l; i++) {
+                        geometry.attributes['normals'][i] = normals.content[i];
+                    }
                     geometry.attributes['normals'].itemSize = normals.itemSize;
                     geometry.attributes['normals'].numItems = normals.numItems;
                 }
 
                 if (uvs !== undefined) {
-                    geometry.attributes['uvs'] = uvs.content;
+                    geometry.attributes['uvs'] = {};
+                    for (var i = 0, l = uvs.content.length; i < l; i++) {
+                        geometry.attributes['uvs'][i] = uvs.content[i];
+                    }
                     geometry.attributes['uvs'].itemSize = uvs.itemSize;
                     geometry.attributes['uvs'].numItems = uvs.numItems;
                 }
 
                 var faceType = -1;
-                switch (d.attributes.faceType) {
+                switch (d.geometries.attributes.faceType) {
                     case 'line':
                         break;
                     default:
@@ -971,13 +1450,13 @@ jFizz.loadJSONModel = function(url, callback) {
 
                 if (d.materials !== undefined) {
                     var materials = d.materials;
-                    materials.textures = d.textures;
-                    materials.images = d.images;
+                    var textures = d.textures;
+                    var images = d.images;
 
-                    return { geometry: geometry, materials: materials };
+                    return { geometry: geometry, materials: materials, textures: textures, images: images };
                 }
 
-                return { geometry: geometry, materials: null };
+                return { geometry: geometry, materials: null, textures: null, images: null };
             }
         }
     });
@@ -986,36 +1465,56 @@ jFizz.loadJSONModel = function(url, callback) {
     request.send();
 };
 
-jFizz.main = function() {
-    var canvas = $('my-canvas');
+jFizz.main = function(c) {
+    var canvas = $(c);
+
     jFizz.init(canvas);
     jFizz.initShaders();
+    jFizz.initPhysics();
+
+    jFizz.myScene = new jFizz.ObjectScene();
+
     jFizz.initBuffers();
     jFizz.initTextures();
 
-    jFizz.loadJSONModel('assets/models/cube.json', function(geometry, materials) {
-        geometry.initialized = false;
-        if (materials !== undefined) {
-            geometry.materials = materials;
-        }
+    jFizz.myAssets.each(function (item, index) {
+        jFizz.loadJSONModel(item, function(geometry, materials) {
+            geometry.initialized = false;
+            if (materials !== undefined) {
+                geometry.materials = materials;
+            }
 
-        jFizz.myObjects.push(geometry);
+            jFizz.myScene.objects.push(geometry);
+
+            //! NOTE: clear buffers
+            geometry = {};
+        });
     });
 
     if (gl) {
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        gl.clearDepth(2.0);
+        gl.clearDepth(1.0);
+        gl.clearStencil(0.0);
 
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LESS);
 
+        gl.enable(gl.CULL_FACE);
+        gl.frontFace(gl.CCW);
+        gl.cullFace(gl.BACK);
+
         document.onkeydown = handleKeyDown;
         document.onkeyup = handleKeyUp;
+
+        document.onmousedown = handleMouseDown;
+        document.onmouseup = handleMouseUp;
+        document.onmousemove = handleMouseMove;
 
         animLoop();
     }
 };
 
-window.addEvent('domready', function() {
-    jFizz.main();
+self.addEvent('domready', function() {
+    jFizz.main('my-canvas');
 });
