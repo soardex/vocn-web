@@ -59,7 +59,7 @@
                 ]
             },
             "indices": {
-                "itemSize": 3,
+                "itemSize": 1,
                 "type": "float",
                 "numItems": 6,
                 "content": [
