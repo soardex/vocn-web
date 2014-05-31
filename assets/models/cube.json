@@ -1,7 +1,7 @@
 {
     "metadata": {
         "type": "geometry",
-        "object": "model",
+        "objType": "model",
         "actives": ["vertices", "uvs", "colors", "normals"]
     },
     "geometries": {

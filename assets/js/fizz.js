@@ -23,7 +23,6 @@ var jFizz = {
         ERROR: '[240] : ',
         WARNING : '[250] : ',
     },
-
     shader: {
         programs: [],
         matrices: {
@@ -32,6 +31,10 @@ var jFizz = {
             view: mat4.create(),
             projection: mat4.create()
         },
+        constants: {
+            perspective: mat4.create(),
+            ortho: mat4.create()
+        }
     },
     identifiers: {
         attribute: [
@@ -77,8 +80,14 @@ var jFizz = {
             button: false
         },
     },
-
     matrixStack: [],
+    activeCamera: {
+        eye: vec3.fromValues(0.0, 0.0, 5.0),
+        point: vec3.fromValues(0.0, 0.0, -1.0),
+        up: vec3.fromValues(0.0, 1.0, 0.0),
+        angle: 0,
+        look: 0
+    },
 
     myPlanes: [],
     myTexture: [],
@@ -92,14 +101,6 @@ var jFizz = {
         'assets/models/ground.json'
     ],
     myZoom: 0,
-    myCamera: {
-        eye: vec3.fromValues(0.0, 0.0, 5.0),
-        point: vec3.fromValues(0.0, 0.0, -1.0),
-        up: vec3.fromValues(0.0, 1.0, 0.0),
-        angle: 0,
-        look: 0
-    },
-
     myPhysics: {},
     myScene: null,
 };
@@ -169,42 +170,42 @@ jFizz.handleKeys = function(delta) {
 
     //! KEY_LEFT
     if (jFizz.events.keyboard[37]) {
-        jFizz.myCamera.angle -= speed * (delta / 1000.0);
-        jFizz.myCamera.point[0] = Math.sin(jFizz.myCamera.angle);
-        jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+        jFizz.activeCamera.angle -= speed * (delta / 1000.0);
+        jFizz.activeCamera.point[0] = Math.sin(jFizz.activeCamera.angle);
+        jFizz.activeCamera.point[2] = -Math.cos(jFizz.activeCamera.angle);
     }
 
     //! KEY_UP
     if (jFizz.events.keyboard[38]) {
-        jFizz.myCamera.eye[0] += jFizz.myCamera.point[0] * speed * (delta / 1000.0);
-        jFizz.myCamera.eye[1] += jFizz.myCamera.point[1] * speed * (delta / 1000.0);
-        jFizz.myCamera.eye[2] += jFizz.myCamera.point[2] * speed * (delta / 1000.0);
+        jFizz.activeCamera.eye[0] += jFizz.activeCamera.point[0] * speed * (delta / 1000.0);
+        jFizz.activeCamera.eye[1] += jFizz.activeCamera.point[1] * speed * (delta / 1000.0);
+        jFizz.activeCamera.eye[2] += jFizz.activeCamera.point[2] * speed * (delta / 1000.0);
     }
 
     //! KEY_RIGHT
     if (jFizz.events.keyboard[39]) {
-        jFizz.myCamera.angle += speed * (delta / 1000.0);
-        jFizz.myCamera.point[0] = Math.sin(jFizz.myCamera.angle);
-        jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+        jFizz.activeCamera.angle += speed * (delta / 1000.0);
+        jFizz.activeCamera.point[0] = Math.sin(jFizz.activeCamera.angle);
+        jFizz.activeCamera.point[2] = -Math.cos(jFizz.activeCamera.angle);
     }
 
     //! KEY_DOWN
     if (jFizz.events.keyboard[40]) {
-        jFizz.myCamera.eye[0] -= jFizz.myCamera.point[0] * speed * (delta / 1000.0);
-        jFizz.myCamera.eye[1] -= jFizz.myCamera.point[1] * speed * (delta / 1000.0);
-        jFizz.myCamera.eye[2] -= jFizz.myCamera.point[2] * speed * (delta / 1000.0);
+        jFizz.activeCamera.eye[0] -= jFizz.activeCamera.point[0] * speed * (delta / 1000.0);
+        jFizz.activeCamera.eye[1] -= jFizz.activeCamera.point[1] * speed * (delta / 1000.0);
+        jFizz.activeCamera.eye[2] -= jFizz.activeCamera.point[2] * speed * (delta / 1000.0);
     }
 
     //! KEY_END
     if (jFizz.events.keyboard[35]) {
-        jFizz.myCamera.look -= speed * (delta / 1000.0);
-        jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.look);
+        jFizz.activeCamera.look -= speed * (delta / 1000.0);
+        jFizz.activeCamera.point[1] = Math.sin(jFizz.activeCamera.look);
     }
 
     //! KEY_HOME
     if (jFizz.events.keyboard[36]) {
-        jFizz.myCamera.look += speed * (delta / 1000.0);
-        jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.look);
+        jFizz.activeCamera.look += speed * (delta / 1000.0);
+        jFizz.activeCamera.point[1] = Math.sin(jFizz.activeCamera.look);
     }
 
     //! KEY_A
@@ -251,21 +252,21 @@ jFizz.handleKeys = function(delta) {
 jFizz.handleMouse = function(delta) {
     if (jFizz.events.mouse.button) {
         if (jFizz.events.mouse.position.x >= (gl.viewportWidth / 2) + 128) {
-            jFizz.myCamera.angle += 7.0 * (delta / 1000.0);
-            jFizz.myCamera.point[0] = Math.sin(jFizz.myCamera.angle);
-            jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+            jFizz.activeCamera.angle += 7.0 * (delta / 1000.0);
+            jFizz.activeCamera.point[0] = Math.sin(jFizz.activeCamera.angle);
+            jFizz.activeCamera.point[2] = -Math.cos(jFizz.activeCamera.angle);
         } else if (jFizz.events.mouse.position.x < (gl.viewportWidth / 2) - 128) {
-            jFizz.myCamera.angle -= 7.0 * (delta / 1000.0);
-            jFizz.myCamera.point[0] = Math.sin(jFizz.myCamera.angle);
-            jFizz.myCamera.point[2] = -Math.cos(jFizz.myCamera.angle);
+            jFizz.activeCamera.angle -= 7.0 * (delta / 1000.0);
+            jFizz.activeCamera.point[0] = Math.sin(jFizz.activeCamera.angle);
+            jFizz.activeCamera.point[2] = -Math.cos(jFizz.activeCamera.angle);
         }
 
         if (jFizz.events.mouse.position.y >= (gl.viewportHeight / 2) + 100) {
-            jFizz.myCamera.look -= 7.0 * (delta / 1000.0);
-            jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.look);
+            jFizz.activeCamera.look -= 7.0 * (delta / 1000.0);
+            jFizz.activeCamera.point[1] = Math.sin(jFizz.activeCamera.look);
         } else if (jFizz.events.mouse.position.y < (gl.viewportHeight / 2) - 128) {
-            jFizz.myCamera.look += 7.0 * (delta / 1000.0);
-            jFizz.myCamera.point[1] = Math.sin(jFizz.myCamera.look);
+            jFizz.activeCamera.look += 7.0 * (delta / 1000.0);
+            jFizz.activeCamera.point[1] = Math.sin(jFizz.activeCamera.look);
         }
     }
 };
@@ -465,7 +466,9 @@ jFizz.shaderCreator = {
             jFizz.shaderChunk['color_head_vertex'],
             jFizz.shaderChunk['light_head_vertex'],
             'void main() {',
-                jFizz.shaderChunk['default_vertex'],
+            '  vec4 _MVPosition;',
+            '  _MVPosition = vec4(aVertexPosition, 1.0);',
+            '  gl_Position = uPMatrix * _MVPosition;',
                 jFizz.shaderChunk['texture_vertex'],
                 jFizz.shaderChunk['color_vertex'],
                 jFizz.shaderChunk['light_vertex'],
@@ -476,13 +479,14 @@ jFizz.shaderCreator = {
             jFizz.shaderChunk['color_head_fragment'],
             jFizz.shaderChunk['light_head_fragment'],
             'void main() {',
-                jFizz.shaderChunk['default_fragment'],
-                jFizz.shaderChunk['texture_fragment'],
-                jFizz.shaderChunk['color_fragment'],
-                jFizz.shaderChunk['light_fragment'],
+            'gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));',
+                //jFizz.shaderChunk['default_fragment'],
+                //jFizz.shaderChunk['texture_fragment'],
+                //jFizz.shaderChunk['color_fragment'],
+                //jFizz.shaderChunk['light_fragment'],
             '}'
         ].join('\n')
-    },
+    }
 };
 
 jFizz.createContext = function(canvas) {
@@ -570,6 +574,7 @@ jFizz.getShaderFactory = function(name, type, prefix) {
     }
 
     str = prefix + jFizz.shaderCreator[name][stype];
+    console.log(str);
 
     gl.shaderSource(shader, str);
     gl.compileShader(shader);
@@ -656,12 +661,14 @@ jFizz.createShaderProgram = function(name, defines) {
         '#endif',
         '',
         'attribute vec3 aVertexPosition;',
-        'attribute vec3 aVertexNormal;',
+        '#ifdef USE_NORMAL',
+        '    attribute vec3 aVertexNormal;',
+        '#endif',
         '#ifdef USE_COLOR',
-        '   attribute vec4 aVertexColor;',
+        '    attribute vec4 aVertexColor;',
         '#endif',
         '#ifdef USE_TEXTURE',
-        '   attribute vec2 aVertexTextureCoord;',
+        '    attribute vec2 aVertexTextureCoord;',
         '#endif',
         '',
     ].join('\n');
@@ -674,7 +681,7 @@ jFizz.createShaderProgram = function(name, defines) {
         'uniform float uOpacity;',
         'uniform float uTime;',
         '#ifdef USE_TEXTURE',
-        '   uniform sampler2D uSampler;',
+        '    uniform sampler2D uSampler;',
         '#endif',
         '',
     ].join('\n');
@@ -700,14 +707,14 @@ jFizz.createShaderProgram = function(name, defines) {
 };
 
 jFizz.initShaders = function() {
-    var defines = ['USE_COLOR', 'USE_TEXTURE', 'USE_PL'];
+    var defines = ['USE_TEXTURE'];
     jFizz.shader.programs[0] = jFizz.createShaderProgram('basic', defines);
     jFizz.shader.programs[1] = jFizz.createShaderProgram('full-basic', defines);
     jFizz.shader.programs[2] = jFizz.createShaderProgram('no-depth', defines);
 };
 
 jFizz.initBuffers = function() {
-    //jFizz.GeometryCreator.generatePlaneBuffer(0);
+    jFizz.GeometryCreator.generatePlaneBuffer(0);
     //jFizz.GeometryCreator.generateCubeBuffer(0);
     //jFizz.GeometryCreator.generateSkyDomeBuffer(0);
 };
@@ -716,58 +723,58 @@ jFizz.GeometryCreator = {
     generatePlaneBuffer: function(tid) {
         var objectCount = jFizz.myScene.objects.length;
         var geometry = new jFizz.ObjectMesh();
+        var texture = jFizz.myTexture[tid];
         jFizz.myScene.objects.push(geometry);
 
         var object = jFizz.myScene.objects[objectCount];
-        object.faceType = gl.TRIANGLES;
+        object.faceType = gl.TRIANGLE_FAN;
         object.lastTexCount = tid;
-        object.objType = 'model';
+        object.objType = 'sprite';
+        object.priority = 75;
         object.buffers = [];
 
-        var buffers = {};
-        var scale = 1.0 * 0.5;
+        var f = {
+            w: texture.image.width,
+            h: texture.image.height,
+            ul: vec2.fromValues(0, 0),
+            lr: vec2.fromValues(texture.image.width, texture.image.width)
+        };
+
+        var p = {
+            x: 200.0,
+            y: 0.0
+        };
+
+        var d = {
+            w: f.w,
+            h: f.h,
+            s: texture.image.width,
+            t: texture.image.height
+        };
+
+        var c = {
+            ul: vec2.fromValues(f.ul[0] / d.s, (d.t - f.ul[1]) / d.t),
+            lr: vec2.fromValues(f.lr[0] / d.s, (d.t - f.lr[1]) / d.t),
+        };
 
         var definitions = {
             vertices: [
-                -scale, -scale, -scale,
-                 scale, -scale, -scale,
-                 scale,  scale, -scale,
-                -scale,  scale, -scale
-            ],
-            colors: [
-                1.0, 0.0, 0.0, 1.0,
-                0.0, 1.0, 0.0, 1.0,
-                0.0, 0.0, 1.0, 1.0,
-                0.0, 1.0, 0.0, 1.0
-            ],
-            normals: [
-                -1, -1, -1,
-                 1, -1, -1,
-                 1,  1, -1,
-                -1,  1, -1,
+                p.x, p.y, 0.0,
+                p.x, p.y + d.h, 0.0,
+                p.x + d.w, p.y + d.h, 0.0,
+                p.x + d.w, p.y, 0.0
             ],
             uvs: [
-                0.0, 1.0,
-                1.0, 1.0,
-                1.0, 0.0,
-                0.0, 0.0,
+                c.ul[0], c.ul[1],
+                c.ul[0], c.lr[1],
+                c.lr[0], c.lr[1],
+                c.lr[0], c.ul[1]
             ],
-            indices: [
-                0, 2, 1,
-                0, 3, 2
-            ]
+            indices: [0, 1, 2, 3]
         };
 
         var instances = {
             vertices: {
-                itemSize: 3,
-                numItems: 4
-            },
-            colors: {
-                itemSize: 4,
-                numItems: 4
-            },
-            normals: {
                 itemSize: 3,
                 numItems: 4
             },
@@ -777,11 +784,12 @@ jFizz.GeometryCreator = {
             },
             indices: {
                 itemSize: 1,
-                numItems: 6
+                numItems: 4
             }
         };
 
-        var identifiers = ['vertices', 'colors', 'normals', 'uvs', 'indices'];
+        var buffers = {};
+        var identifiers = ['vertices', 'uvs', 'indices'];
         for (var i = 0, l = identifiers.length; i < l; i++) {
             var id = identifiers[i];
 
@@ -805,15 +813,14 @@ jFizz.GeometryCreator = {
 
         object.buffers[0] = buffers;
         object.initialized = true;
-
         object.materials = [
             {
                 color: {
                     diffuse: 16777215,
                     ambient: 16777215
                 },
-                opacity: 1.0,
-                transparent: false
+                opacity: 0.7,
+                transparent: true
             }
         ];
 
@@ -830,6 +837,7 @@ jFizz.GeometryCreator = {
         object.faceType = gl.TRIANGLES;
         object.lastTexCount = tid;
         object.objType = 'model';
+        object.priority = 75;
         object.buffers = [];
 
         var buffers = {};
@@ -955,15 +963,14 @@ jFizz.GeometryCreator = {
 
         object.buffers[0] = buffers;
         object.initialized = true;
-
         object.materials = [
             {
                 color: {
                     diffuse: 16777215,
                     ambient: 16777215
                 },
-                opacity: 1.0,
-                transparent: false
+                opacity: 0.7,
+                transparent: true
             }
         ];
 
@@ -980,17 +987,18 @@ jFizz.GeometryCreator = {
         object.faceType = gl.TRIANGLES;
         object.lastTexCount = tid;
         object.objType = 'skydome';
+        object.priority = 75;
         object.buffers = [];
 
-        var buffers = {};
-        var horizontalRes = 192.0;
-        var verticalRes = 192.0;
-        var texturePerc = -1.0;
-        var spherePerc = 0.9;
-        var radius = 250.0;
+        var horizontalRes = 192.0,
+            verticalRes = 192.0,
+            texturePerc = -1.0,
+            spherePerc = 1.0,
+            radius = 250.0;
 
         var azimuth;
         var azimuthStep = (Math.PI * 2.0) / horizontalRes;
+
         if (spherePerc < 0.0)
             spherePerc = -spherePerc;
         if (spherePerc > 2.0)
@@ -999,40 +1007,48 @@ jFizz.GeometryCreator = {
         var halfPI = (Math.PI / 2.0);
         var elevationStep = spherePerc * halfPI / verticalRes;
 
-        var vertices = [], normals = [], uvs = [], colors = [];
+        var definitions = {
+            vertices: [],
+            colors: [],
+            normals: [],
+            uvs: [],
+            indices: []
+        };
 
-        var pos, tcs;
+        var p, t;
         var tcV = texturePerc / verticalRes;
         for (var i = 0, azimuth = 0; i  <= horizontalRes; ++i) {
             var elevation = halfPI;
             var tcU = i / horizontalRes;
+
             var sinA = Math.sin(azimuth);
             var cosA = Math.cos(azimuth);
 
             for (var j = 0; j <= verticalRes; ++j) {
                 var cosEr = radius * Math.cos(elevation);
-                pos = [cosEr * sinA, radius * Math.sin(elevation), cosEr * cosA];
-                tcs = [tcU, j * tcV];
+
+                p = [cosEr * sinA, radius * Math.sin(elevation), cosEr * cosA];
+                t = [tcU, j * tcV];
 
                 var n = vec3.create();
-                n = [-pos[0], -pos[1], -pos[2]];
+                n = [-p[0], -p[1], -p[2]];
                 vec3.normalize(n, n);
 
-                vertices.push(pos[0]);
-                vertices.push(pos[1]);
-                vertices.push(pos[2]);
+                definitions['vertices'].push(p[0]);
+                definitions['vertices'].push(p[1]);
+                definitions['vertices'].push(p[2]);
 
-                colors.push(1.0);
-                colors.push(1.0);
-                colors.push(1.0);
-                colors.push(1.0);
+                definitions['colors'].push(1.0);
+                definitions['colors'].push(1.0);
+                definitions['colors'].push(1.0);
+                definitions['colors'].push(1.0);
 
-                normals.push(n[0]);
-                normals.push(n[1]);
-                normals.push(n[2]);
+                definitions['normals'].push(n[0]);
+                definitions['normals'].push(n[1]);
+                definitions['normals'].push(n[2]);
 
-                uvs.push(tcs[0]);
-                uvs.push(tcs[1]);
+                definitions['uvs'].push(t[0]);
+                definitions['uvs'].push(t[1]);
 
                 elevation -= elevationStep;
             }
@@ -1040,71 +1056,70 @@ jFizz.GeometryCreator = {
             azimuth += azimuthStep;
         }
 
-        buffers['vertices'] = gl.createBuffer();
-        buffers['vertices'].itemSize = 3;
-        buffers['vertices'].numItems = 12;
-        buffers['vertices'].name = 'vertices';
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers['vertices']);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-        buffers['colors'] = gl.createBuffer();
-        buffers['colors'].itemSize = 4;
-        buffers['colors'].numItems = 12;
-        buffers['colors'].name = 'colors';
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers['colors']);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-        buffers['normals'] = gl.createBuffer();
-        buffers['normals'].itemSize = 3;
-        buffers['normals'].numItems = 12;
-        buffers['normals'].name = 'normals';
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers['normals']);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-        buffers['uvs'] = gl.createBuffer();
-        buffers['uvs'].itemSize = 2;
-        buffers['uvs'].numItems = 12;
-        buffers['uvs'].name = 'uvs';
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers['uvs']);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-        var indices = [];
         for (var i = 0; i < horizontalRes; ++i) {
-            indices.push(verticalRes + 2 + (verticalRes + 1) * i);
-            indices.push(1 + (verticalRes + 1) * i);
-            indices.push(0 + (verticalRes + 1) * i);
+            definitions['indices'].push(verticalRes + 2 + (verticalRes + 1) * i);
+            definitions['indices'].push(1 + (verticalRes + 1) * i);
+            definitions['indices'].push(0 + (verticalRes + 1) * i);
 
             for (var j = 0; j < verticalRes; ++j) {
-                indices.push(verticalRes + 2 + (verticalRes + 1) * i + j);
-                indices.push(1 + (verticalRes + 1) * i + j);
-                indices.push(0 + (verticalRes + 1) * i + j);
+                definitions['indices'].push(verticalRes + 2 + (verticalRes + 1) * i + j);
+                definitions['indices'].push(1 + (verticalRes + 1) * i + j);
+                definitions['indices'].push(0 + (verticalRes + 1) * i + j);
 
-                indices.push(verticalRes + 1 + (verticalRes + 1) * i + j);
-                indices.push(verticalRes + 2 + (verticalRes + 1) * i + j);
-                indices.push(0 + (verticalRes + 1) * i + j);
+                definitions['indices'].push(verticalRes + 1 + (verticalRes + 1) * i + j);
+                definitions['indices'].push(verticalRes + 2 + (verticalRes + 1) * i + j);
+                definitions['indices'].push(0 + (verticalRes + 1) * i + j);
             }
         }
 
-        buffers['indices'] = gl.createBuffer();
-        buffers['indices'].itemSize = 3;
-        buffers['indices'].numItems = indices.length;
-        buffers['indices'].name = 'indices';
+        var instances = {
+            vertices: {
+                itemSize: 3,
+                numItems: 12
+            },
+            colors: {
+                itemSize: 4,
+                numItems: 12
+            },
+            normals: {
+                itemSize: 3,
+                numItems: 12
+            },
+            uvs: {
+                itemSize: 2,
+                numItems: 12
+            },
+            indices: {
+                itemSize: 1,
+                numItems: definitions['indices'].length
+            }
+        };
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers['indices']);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        var buffers = {};
+        var identifiers = ['vertices', 'colors', 'normals', 'uvs', 'indices'];
+        for (var i = 0, l = identifiers.length; i < l; i++) {
+            var id = identifiers[i];
+
+            var buffer = gl.createBuffer();
+            buffer.itemSize = instances[id].itemSize;
+            buffer.numItems = instances[id].numItems;
+
+            if (id != 'indices') {
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(definitions[id]), gl.STATIC_DRAW);
+                gl.bindBuffer(gl.ARRAY_BUFFER, null);
+            } else {
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(definitions[id]), gl.STATIC_DRAW);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+            }
+
+            buffers[id] = buffer;
+            buffers[id].name = id;
+        }
 
         object.buffers[0] = buffers;
         object.initialized = true;
-
         object.materials = [
             {
                 color: {
@@ -1117,10 +1132,8 @@ jFizz.GeometryCreator = {
         ];
 
         //! NOTE: clear stored objects
-        vertices = [],
-        normals = [],
-        uvs = [],
-        colors = [];
+        definitions = {},
+        instances = {};
     }
 };
 
@@ -1174,10 +1187,10 @@ jFizz.loadImage = function(id, url) {
             if (texture !== undefined) {
                 gl.bindTexture(gl.TEXTURE_2D, texture);
                 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                if (jFizz.Math.isPowerOfTwo(texture.width) && jFizz.Math.isPowerOfTwo(texture.height)) {
+                if (jFizz.Math.isPowerOfTwo(image.width) && jFizz.Math.isPowerOfTwo(image.height)) {
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
 
@@ -1244,15 +1257,19 @@ jFizz.drawScene = function() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     var ratio = gl.viewportWidth / gl.viewportHeight;
-    mat4.perspective(jFizz.shader.matrices['projection'], 45.0, ratio, 0.1, 1000.0);
+    mat4.perspective(jFizz.shader.constants['perspective'], 45.0, ratio, 0.1, 1000.0);
+    mat4.ortho(jFizz.shader.constants['ortho'], 0, gl.viewportWidth, gl.viewportHeight, 0.0, -1.0, 1.0);
+
+    //! NOTE: set default projection view
+    jFizz.shader.matrices['projection'] = jFizz.shader.constants['perspective'];
 
     var point = vec3.create();
-    vec3.add(point, jFizz.myCamera.eye, jFizz.myCamera.point);
+    vec3.add(point, jFizz.activeCamera.eye, jFizz.activeCamera.point);
 
     mat4.lookAt(jFizz.shader.matrices['view'],
-                jFizz.myCamera.eye,     //! eye position
+                jFizz.activeCamera.eye,     //! eye position
                 point,                  //! point target
-                jFizz.myCamera.up);     //! vector pointing up
+                jFizz.activeCamera.up);     //! vector pointing up
 
     mat4.identity(jFizz.shader.matrices['model']);
     mat4.multiply(jFizz.shader.matrices['modelview'], jFizz.shader.matrices['view'], jFizz.shader.matrices['model']);
@@ -1396,6 +1413,9 @@ jFizz.ObjectScene.prototype = {
                     object.buffers[n] = buffers;
                     object.initialized = true;
 
+                    //! NOTE: set to default priority
+                    object.priority = 65;
+
                     //! NOTE: clear buffers
                     object.attributes[n] = {};
                 }
@@ -1415,7 +1435,7 @@ jFizz.ObjectScene.prototype = {
 
             object.visible = false;
             jFizz.checkAgainstFrustum(object, position, radius);
-            if (object.visible == true) {
+            if (true && object.objType != 'sprite') {
                 if (object.objType == 'model') {
                     gl.disable(gl.CULL_FACE);
                     this.draw(object, 0);
@@ -1429,9 +1449,21 @@ jFizz.ObjectScene.prototype = {
                 }
             }
         }
+
+        //! NOTE: render last ortho elements
+        for (var k = 0, c = this.objects.length; k < c; k++) {
+            var object = this.objects[k];
+            if (object.objType == 'sprite') {
+                gl.disable(gl.CULL_FACE);
+                this.drawSprite(object, 2);
+                gl.enable(gl.CULL_FACE);
+            }
+        }
     },
     draw: function(object, pid) {
         var program = jFizz.shader.programs[pid];
+
+        jFizz.shader.matrices['projection'] = jFizz.shader.constants['perspective'];
 
         gl.useProgram(program);
         gl.uniform3fv(program.uniforms['uResolution'], [gl.viewportWidth, gl.viewportHeight, 1.0]);
@@ -1460,7 +1492,6 @@ jFizz.ObjectScene.prototype = {
 
             var identifiers = ['vertices', 'colors', 'uvs', 'normals'];
             for (var i = 0, l = jFizz.identifiers['attribute'].length; i < l; i++) {
-
                 if (identifiers.length != l) {
                     jFizz.log(jFizz.tag.ERROR, 'Identifiers and attributes lengths are not the same.');
                     break;
@@ -1502,8 +1533,18 @@ jFizz.ObjectScene.prototype = {
             jFizz.info.render.vertices += buffet['indices'].numItems;
             jFizz.info.render.indices += buffet['indices'].numItems / 3;
             jFizz.info.render.points += buffet['indices'].numItems / 3;
-
+            for (var i = jFizz.identifiers['attribute'].length, l = 0; i-- > l;) {
+                var id = jFizz.identifiers['attribute'][i];
+                if (program.attributes[id] != -1) {
+                    gl.disableVertexAttribArray(program.attributes[id]);
+                }
+            }
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+            if (object.materials[0].transparent) {
+                gl.disable(gl.BLEND);
+                gl.enable(gl.DEPTH_TEST);
+            }
             jFizz.pop();
         }
 
@@ -1512,64 +1553,109 @@ jFizz.ObjectScene.prototype = {
     drawSprite: function(object, pid) {
         var program = jFizz.shader.programs[pid];
 
+        jFizz.shader.matrices['projection'] = jFizz.shader.constants['ortho'];
+
         gl.useProgram(program);
         gl.uniform3fv(program.uniforms['uResolution'], [gl.viewportWidth, gl.viewportHeight, 1.0]);
 
         for (var n = 0, o = object.buffers.length; n < o; n++) {
             var buffet = object.buffers[n];
             var diffuse = jFizz.setHex(object.materials[n].color.diffuse);
-            var ambient = jFizz.setHex(object.materials[n].color.ambient);
-            var opacity = object.materials[n].opacity;
+            var opacity = 0.7; //object.materials[n].opacity;
             var texture = jFizz.myTexture[object.lastTexCount + n];
-            var location = [0.0, 0.0, -10.0];
-            var light = [1.0, 1.0, 10];
 
             gl.uniform3fv(program.uniforms['uDiffuseColor'], diffuse);
             gl.uniform1f(program.uniforms['uOpacity'], opacity);
 
-            gl.uniform3fv(program.uniforms['uAmbientColor'], ambient);
-            gl.uniform3fv(program.uniforms['uLightingLocation'], location);
-            gl.uniform3fv(program.uniforms['uLightingColor'], light);
+            var f = {
+                w: texture.image.width,
+                h: texture.image.height,
+                ul: vec2.fromValues(0, 0),
+                lr: vec2.fromValues(texture.image.width, texture.image.width)
+            };
 
-            //var definitions = {
-            //  vertices: [],
-            //  uvs: [],
-            //  indices: []
-            //};
+            var p = {
+                x: 200.0,
+                y: 0.0
+            };
 
-            //var instances = {
-            //  vertices: {
-            //      itemSize: 3,
-            //      numItems: 4
-            //  },
-            //  uvs: {
-            //      itemSize: 2,
-            //      numItems: 4
-            //  },
-            //  indices: {
-            //      itemSize: 3,
-            //      numItems: 4
-            //  }
-            //};
+            var d = {
+                w: f.w,
+                h: f.h,
+                s: texture.image.width,
+                t: texture.image.height
+            };
 
-            //gl.bindBuffer(gl.ARRAY_BUFFER, buffet[bid]);
-            //if (itemSize != buffet[bid].itemSize) {
-            //  gl.bufferData(gl.ARRAY_BUFFER, buffer.itemSize, buffer, gl.DYNAMIC_DRAW);
-            //  buffet[bid] = itemSize;
-            //} else {
-            //  gl.bufferSubData(gl.ARRAY_BUFFER, 0, buffer.itemSize, buffer);
-            //}
+            var c = {
+                ul: vec2.fromValues(f.ul[0] / d.s, (d.t - f.ul[1]) / d.t),
+                lr: vec2.fromValues(f.lr[0] / d.s, (d.t - f.lr[1]) / d.t),
+            };
+
+            var definitions = {
+                vertices: [
+                    p.x, p.y, 0.0,
+                    p.x, p.y + d.h, 0.0,
+                    p.x + d.w, p.y + d.h, 0.0,
+                    p.x + d.w, p.y, 0.0
+                ],
+                uvs: [
+                    c.ul[0], c.ul[1],
+                    c.ul[0], c.lr[1],
+                    c.lr[0], c.lr[1],
+                    c.lr[0], c.ul[1]
+                ],
+                indices: [0, 1, 2, 3]
+            };
+
+            var instances = {
+                vertices: {
+                    itemSize: 3,
+                    numItems: 4
+                },
+                uvs: {
+                    itemSize: 2,
+                    numItems: 4
+                },
+                indices: {
+                    itemSize: 1,
+                    numItems: 4
+                }
+            };
+
+            var identifiers = ['vertices', 'colors', 'uvs', 'normals', 'indices'];
+            for (var i = 0, l = identifiers.length; i < l; i++) {
+                var id = identifiers[i];
+
+                if (buffet[id] !== undefined) {
+                    if (id != 'indices') {
+                        gl.bindBuffer(gl.ARRAY_BUFFER, buffet[id]);
+                        if (instances[id].itemSize != buffet[id].itemSize) {
+                            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(definitions[id]), gl.DYNAMIC_DRAW);
+                            buffet[id].itemSize = instances[id].itemSize;
+                        } else {
+                            gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(definitions[id]));
+                        }
+                    } else {
+                        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffet[id]);
+                        if (instances[id].itemSize != buffet[id].itemSize) {
+                            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(definitions[id]), gl.DYNAMIC_DRAW);
+                            buffet[id].itemSize = instances[id].itemSize;
+                        } else {
+                            gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, new Uint16Array(definitions[id]));
+                        }
+                    }
+                }
+            }
 
             jFizz.push();
             if (object.matrix !== undefined) {
                 mat4.multiply(jFizz.shader.matrices['modelview'], jFizz.shader.matrices['modelview'], object.matrix);
             }
+
             jFizz.setMatrixUniforms(program);
 
-            var identifiers = ['vertices', 'colors', 'uvs', 'normals'];
             for (var i = 0, l = jFizz.identifiers['attribute'].length; i < l; i++) {
-
-                if (identifiers.length != l) {
+                if ((identifiers.length - 1) != l) {
                     jFizz.log(jFizz.tag.ERROR, 'Identifiers and attributes lengths are not the same.');
                     break;
                 }
@@ -1610,14 +1696,23 @@ jFizz.ObjectScene.prototype = {
             jFizz.info.render.vertices += buffet['indices'].numItems;
             jFizz.info.render.indices += buffet['indices'].numItems / 3;
             jFizz.info.render.points += buffet['indices'].numItems / 3;
-
+            for (var i = jFizz.identifiers['attribute'].length, l = 0; i-- > l;) {
+                var id = jFizz.identifiers['attribute'][i];
+                if (program.attributes[id] != -1) {
+                    gl.enableVertexAttribArray(program.attributes[id]);
+                }
+            }
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+            if (object.materials[0].transparent) {
+                gl.disable(gl.BLEND);
+                gl.enable(gl.DEPTH_TEST);
+            }
             jFizz.pop();
         }
 
         gl.useProgram(null);
     },
-
 };
 
 jFizz.setHex = function(hex) {
@@ -1647,18 +1742,8 @@ jFizz.loadJSONModel = function(url, callback) {
             if (data.metadata.type == 'geometry') {
                 var result;
                 result = parse(data);
-                switch (data.metadata.object) {
-                    case 'model':
-                        result.geometry.objType = 'model';
-                        break;
-                    case 'skybox':
-                        result.geometry.objType = 'skybox';
-                        break;
-                    case 'plane':
-                        result.geometry.objType = 'plane';
-                        break;
-                }
 
+                result.geometry.objType = data.metadata.objType;
                 result.geometry.images = result.images;
                 result.geometry.textures = result.textures;
                 callback(result.geometry, result.materials);
@@ -1765,12 +1850,13 @@ jFizz.main = function(c) {
 
     jFizz.myScene = new jFizz.ObjectScene();
 
-    jFizz.initBuffers();
     jFizz.initTextures();
+    jFizz.initBuffers();
 
     jFizz.myAssets.each(function (item, index) {
         jFizz.loadJSONModel(item, function(geometry, materials) {
             geometry.initialized = false;
+
             if (materials !== undefined) {
                 geometry.materials = materials;
             }
@@ -1797,7 +1883,6 @@ jFizz.main = function(c) {
 
         document.onkeydown = jFizz.Controls.handleKeyDown;
         document.onkeyup = jFizz.Controls.handleKeyUp;
-
         document.onmousedown = jFizz.Controls.handleMouseDown;
         document.onmouseup = jFizz.Controls.handleMouseUp;
         document.onmousemove = jFizz.Controls.handleMouseMove;

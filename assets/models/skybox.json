@@ -1,7 +1,7 @@
 {
     "metadata": {
         "type": "geometry",
-        "object": "skybox"
+        "objType": "skybox"
     },
     "geometries": {
         "attributes": {

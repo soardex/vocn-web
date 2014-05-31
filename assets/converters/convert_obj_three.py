@@ -8,15 +8,15 @@ python convert_obj_three.py -i infile.obj -o outfile.js [-m "morphfiles*.obj"] [
 
 Notes:
     - flags
-        -i infile.obj			input OBJ file
-        -o outfile.js			output JS file
-        -m "morphfiles*.obj"	morph OBJ files (can use wildcards, enclosed in quotes multiple patterns separate by space)
-        -c "morphcolors*.obj"	morph colors OBJ files (can use wildcards, enclosed in quotes multiple patterns separate by space)
+        -i infile.obj           input OBJ file
+        -o outfile.js           output JS file
+        -m "morphfiles*.obj"    morph OBJ files (can use wildcards, enclosed in quotes multiple patterns separate by space)
+        -c "morphcolors*.obj"   morph colors OBJ files (can use wildcards, enclosed in quotes multiple patterns separate by space)
         -a center|centerxz|top|bottom|none model alignment
-        -s smooth|flat			smooth = export vertex normals, flat = no normals (face normals computed in loader)
-        -t ascii|binary			export ascii or binary format (ascii has more features, binary just supports vertices, faces, normals, uvs and materials)
-        -d invert|normal		invert transparency
-        -b						bake material colors into face colors
+        -s smooth|flat          smooth = export vertex normals, flat = no normals (face normals computed in loader)
+        -t ascii|binary         export ascii or binary format (ascii has more features, binary just supports vertices, faces, normals, uvs and materials)
+        -d invert|normal        invert transparency
+        -b                      bake material colors into face colors
         -x 10.0                 scale and truncate
         -f 2                    morph frame sampling step
 
@@ -135,7 +135,7 @@ import glob
 # #####################################################
 # Configuration
 # #####################################################
-ALIGN = "none"        	# center centerxz bottom top none
+ALIGN = "none"          # center centerxz bottom top none
 SHADING = "smooth"      # smooth flat
 TYPE = "ascii"          # ascii binary
 TRANSPARENCY = "normal" # normal invert
