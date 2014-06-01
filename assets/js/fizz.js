@@ -747,14 +747,14 @@ jFizz.initTextures = function() {
 };
 
 jFizz.initBuffers = function() {
-    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.sceneManager.scenes['myScene'], 0, 'center', {
+    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.sceneManager.scenes['mySceneDebug'], 0, 'center', {
         w: 440,
         h: 170,
         ul: 'default',
         lr: vec2.fromValues(440, 170)
     }, 'default', true, false);
-    //jFizz.GeometryCreator.generateCubeBuffer(jFizz.sceneManager.scenes['myScene'], 1, 1.0, 1.0, false);
-    //jFizz.GeometryCreator.generateSkyDomeBuffer(jFizz.sceneManager.scenes['myScene'], 0);
+    //jFizz.GeometryCreator.generateCubeBuffer(jFizz.sceneManager.scenes['mySceneDebug'], 1, 1.0, 1.0, false);
+    //jFizz.GeometryCreator.generateSkyDomeBuffer(jFizz.sceneManager.scenes['mySceneDebug'], 0);
 };
 
 jFizz.GeometryCreator = {
@@ -1405,7 +1405,7 @@ jFizz.drawScene = function() {
     mat4.multiply(jFizz.shader.matrices['modelview'], jFizz.shader.matrices['view'], jFizz.shader.matrices['model']);
 
     for (var i = 0, l = jFizz.myAssets.length; i < l; i++) {
-        if (jFizz.sceneManager.scenes['myScene'].objects[i] === undefined) return;
+        if (jFizz.sceneManager.scenes['mySceneDebug'].objects[i] === undefined) return;
     }
 
     for (var i = 0, l = jFizz.shader.programs.length; i < l; i++) {
@@ -1492,7 +1492,7 @@ jFizz.SceneManager = function() {
     this.info = {
         scenes: 0
     };
-    this.current = 'myScene';
+    this.current = 'mySceneDebug';
 };
 
 jFizz.SceneManager.prototype = {
@@ -1541,10 +1541,51 @@ jFizz.ObjectMesh = function() {
     this.uuid = jFizz.Math.generateUUID();
     this.faceType = -1;
     this.attributes = {};
+    this.boundingBox = {
+        min: vec3.create(),
+        max: vec3.create()
+    };
 };
 
 jFizz.ObjectMesh.prototype = {
     constructor: jFizz.ObjectMesh,
+    computeBoundingBox: function() {
+        var positions = this.attributes['vertices'];
+        if (positions) {
+            var bb = this.boundingBox;
+
+            if(positions.length >= 3) {
+                bb.min[0] = bb.max[0] = positions[0];
+                bb.min[1] = bb.max[1] = positions[1];
+                bb.min[2] = bb.max[2] = positions[2];
+            }
+
+            for (var i = 3, l = positions.length; i < l; i += 3) {
+                var x = positions[i];
+                var y = positions[i + 1];
+                var z = positions[i + 2];
+
+                //! NOTE: compute bounding box
+                if (x < bb.min[0]) {
+                    bb.min[0] = x;
+                } else if (x > bb.max[0]) {
+                    bb.max[0] = x;
+                }
+
+                if (y < bb.min[1]) {
+                    bb.min[1] = y;
+                } else if (y > bb.max[1]) {
+                    bb.max[1] = y;
+                }
+
+                if (z < bb.min[2]) {
+                    bb.min[2] = z;
+                } else if (z > bb.max[2]) {
+                    bb.max[2] = z;
+                }
+            }
+        }
+    }
 };
 
 jFizz.ObjectScene = function() {
@@ -1554,7 +1595,7 @@ jFizz.ObjectScene = function() {
 
 jFizz.ObjectScene.prototype = {
     constructor: jFizz.ObjectScene,
-    morph: function(object, matrix) {
+    preMorph: function(object, matrix) {
         var position = [0.0, 0.0, jFizz.myZoom];
         if (object.objType == 'model') {
             mat4.translate(matrix, matrix, position);
@@ -1563,6 +1604,19 @@ jFizz.ObjectScene.prototype = {
         }
 
         return position;
+    },
+    postMorph: function(object) {
+        if (object.objType == 'model') {
+            gl.disable(gl.CULL_FACE);
+            this.draw(object, 0);
+            gl.enable(gl.CULL_FACE);
+        } else if (object.objType == 'skybox') {
+            gl.cullFace(gl.FRONT);
+            this.draw(object, 0);
+            gl.cullFace(gl.BACK);
+        } else {
+            this.draw(object, 0);
+        }
     },
     animateScene: function(delta) {
     },
@@ -1615,7 +1669,8 @@ jFizz.ObjectScene.prototype = {
 
             var identity = mat4.create();
             mat4.identity(identity);
-            var position = this.morph(object, identity);
+
+            var position = this.preMorph(object, identity);
             var radius = 1.0;
 
             object.matrix = identity;
@@ -1623,17 +1678,7 @@ jFizz.ObjectScene.prototype = {
 
             jFizz.checkAgainstFrustum(object, position, radius);
             if (object.visible == true && object.objType != 'sprite') {
-                if (object.objType == 'model') {
-                    gl.disable(gl.CULL_FACE);
-                    this.draw(object, 0);
-                    gl.enable(gl.CULL_FACE);
-                } else if (object.objType == 'skybox') {
-                    gl.cullFace(gl.FRONT);
-                    this.draw(object, 0);
-                    gl.cullFace(gl.BACK);
-                } else {
-                    this.draw(object, 0);
-                }
+                this.postMorph(object);
             }
         }
 
@@ -2036,7 +2081,7 @@ jFizz.main = function(c) {
     jFizz.initPhysics();
 
     jFizz.sceneManager = new jFizz.SceneManager();
-    jFizz.sceneManager.add('myScene', new jFizz.ObjectScene);
+    jFizz.sceneManager.add('mySceneDebug', new jFizz.ObjectScene);
 
     jFizz.initTextures();
     jFizz.initBuffers();
@@ -2045,7 +2090,7 @@ jFizz.main = function(c) {
         jFizz.loadJSONModel(item, function(geometry, materials) {
             geometry.initialized = false;
 
-            jFizz.sceneManager.scenes['myScene'].objects.push(geometry);
+            jFizz.sceneManager.scenes['mySceneDebug'].objects.push(geometry);
             if (materials !== undefined) {
                 jFizz.sharedResources.materials.push(materials);
             }
