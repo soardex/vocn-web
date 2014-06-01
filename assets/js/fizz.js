@@ -96,9 +96,9 @@ var jFizz = {
     myLapseTime: new Date().getTime(),
     mySpeed: 30,
     myAssets: [
-        'assets/models/cube.json',
-        'assets/models/skybox.json',
-        'assets/models/ground.json'
+        //'assets/models/cube.json',
+        //'assets/models/skybox.json',
+        //'assets/models/ground.json'
     ],
     myZoom: 0,
     myPhysics: {},
@@ -714,13 +714,13 @@ jFizz.initShaders = function() {
 };
 
 jFizz.initBuffers = function() {
-    jFizz.GeometryCreator.generatePlaneBuffer(0);
-    //jFizz.GeometryCreator.generateCubeBuffer(0);
-    //jFizz.GeometryCreator.generateSkyDomeBuffer(0);
+    jFizz.GeometryCreator.generateSpriteQuadBuffer(0, [0, 0], [400, 400], 1.0, true);
+    jFizz.GeometryCreator.generateCubeBuffer(1);
+    jFizz.GeometryCreator.generateSkyDomeBuffer(1);
 };
 
 jFizz.GeometryCreator = {
-    generatePlaneBuffer: function(tid) {
+    generateSpriteQuadBuffer: function(tid, position, dimension, opacity, transparent, useTextureDimension, priority) {
         var objectCount = jFizz.myScene.objects.length;
         var geometry = new jFizz.ObjectMesh();
         var texture = jFizz.myTexture[tid];
@@ -730,19 +730,24 @@ jFizz.GeometryCreator = {
         object.faceType = gl.TRIANGLE_FAN;
         object.lastTexCount = tid;
         object.objType = 'sprite';
-        object.priority = 75;
+        object.priority = (priority === undefined) ? 75 : priority;
         object.buffers = [];
 
         var f = {
-            w: texture.image.width,
-            h: texture.image.height,
+            w: (dimension === undefined) ? texture.image.width : dimension[0],
+            h: (dimension === undefined) ? texture.image.height : dimension[1],
             ul: vec2.fromValues(0, 0),
-            lr: vec2.fromValues(texture.image.width, texture.image.width)
+            lr: (useTextureDimension === undefined) ? vec2.fromValues(texture.image.width, texture.image.height) : vec2.fromValues(w, h)
         };
 
         var p = {
-            x: 200.0,
-            y: 0.0
+            x: (position === undefined) ? 0.0 : position[0],
+            y: (position === undefined) ? 0.0 : position[1]
+        };
+
+        object.userdata = {
+            f: f,
+            p: p
         };
 
         var d = {
@@ -819,8 +824,8 @@ jFizz.GeometryCreator = {
                     diffuse: 16777215,
                     ambient: 16777215
                 },
-                opacity: 0.7,
-                transparent: true
+                opacity: (opacity === undefined) ? 1.0 : opacity,
+                transparent: (transparent === undefined) ? false : transparent
             }
         ];
 
@@ -828,7 +833,7 @@ jFizz.GeometryCreator = {
         definitions = {},
         instances = {};
     },
-    generateCubeBuffer: function(tid) {
+    generateCubeBuffer: function(tid, size, opacity, transparent, priority) {
         var objectCount = jFizz.myScene.objects.length;
         var geometry = new jFizz.ObjectMesh();
         jFizz.myScene.objects.push(geometry);
@@ -837,11 +842,12 @@ jFizz.GeometryCreator = {
         object.faceType = gl.TRIANGLES;
         object.lastTexCount = tid;
         object.objType = 'model';
-        object.priority = 75;
+        object.priority = (priority === undefined) ? 75 : priority;
         object.buffers = [];
 
         var buffers = {};
         var scale = 1.0 * 0.5;
+        scale *= (size === undefined) ? 1.0 : size;
 
         var definitions = {
             vertices: [
@@ -969,8 +975,8 @@ jFizz.GeometryCreator = {
                     diffuse: 16777215,
                     ambient: 16777215
                 },
-                opacity: 0.7,
-                transparent: true
+                opacity: (opacity === undefined) ? 1.0 : opacity,
+                transparent: (transparent === undefined) ? false : transparent
             }
         ];
 
@@ -978,7 +984,7 @@ jFizz.GeometryCreator = {
         definitions = {},
         instances = {};
     },
-    generateSkyDomeBuffer: function(tid) {
+    generateSkyDomeBuffer: function(tid, hr, vr, tp, sp, r, opacity, transparent, priority) {
         var objectCount = jFizz.myScene.objects.length;
         var geometry = new jFizz.ObjectMesh();
         jFizz.myScene.objects.push(geometry);
@@ -987,14 +993,14 @@ jFizz.GeometryCreator = {
         object.faceType = gl.TRIANGLES;
         object.lastTexCount = tid;
         object.objType = 'skydome';
-        object.priority = 75;
+        object.priority = (priority === undefined) ? 75 : priority;
         object.buffers = [];
 
-        var horizontalRes = 192.0,
-            verticalRes = 192.0,
-            texturePerc = -1.0,
-            spherePerc = 1.0,
-            radius = 250.0;
+        var horizontalRes = (hr === undefined) ? 192.0 : hr,
+            verticalRes = (vr === undefined) ? 192.0 : vr,
+            texturePerc = (tp === undefined) ? -1.0 : tp,
+            spherePerc = (sp === undefined) ? 1.0 : sp,
+            radius = (r === undefined) ? 250.0 : r;
 
         var azimuth;
         var azimuthStep = (Math.PI * 2.0) / horizontalRes;
@@ -1126,8 +1132,8 @@ jFizz.GeometryCreator = {
                     diffuse: 16777215,
                     ambient: 16777215
                 },
-                opacity: 1.0,
-                transparent: false
+                opacity: (opacity === undefined) ? 1.0 : opacity,
+                transparent: (transparent === undefined) ? false : transparent
             }
         ];
 
@@ -1177,33 +1183,73 @@ jFizz.checkAgainstFrustum = function(object, p, r) {
     object.visible = true;
 };
 
-jFizz.loadImage = function(id, url) {
+jFizz.loadImage = function(id, url, opts) {
     var image = new Image();
     image.src = url;
     image.onload = function() {
-        handleTexture(id);
+        if (opts === undefined){
+            handleTexture(id);
+        } else {
+            handleTexture(id, opts);
+        }
 
-        function handleTexture(texture) {
+        function handleTexture(texture, opts) {
             if (texture !== undefined) {
                 gl.bindTexture(gl.TEXTURE_2D, texture);
                 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                if (jFizz.Math.isPowerOfTwo(image.width) && jFizz.Math.isPowerOfTwo(image.height)) {
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
 
-                    var ext = gl.getExtension( 'EXT_texture_filter_anisotropic' ) ||
-                        gl.getExtension( 'MOZ_EXT_texture_filter_anisotropic' ) ||
-                        gl.getExtension( 'WEBKIT_EXT_texture_filter_anisotropic' );
-                    gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, 6);
+                var settings = {
+                    mipmap: true,
+                    filter: 'linear',
+                    anisotropy: 6
+                };
 
-                    gl.generateMipmap(gl.TEXTURE_2D);
-                } else {
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                if (opts !== undefined) {
+                    settings.mipmap = (opts.mipmap === undefined) ? settings.mipmap : opts.mipmap;
+                    settings.filter = (opts.filter === undefined) ? settings.filter : opts.filter;
+                    settings.anisotropy = (opts.anisotropy === undefined) ? settings.anisotropy : opts.anisotropy;
                 }
+
+                if (jFizz.Math.isPowerOfTwo(image.width) && jFizz.Math.isPowerOfTwo(image.height)) {
+                    if (settings.mipmap) {
+                        if (settings.filter == 'linear') {
+                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+                        } else {
+                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST);
+                        }
+
+                        if (settings.anisotropy !== undefined) {
+                            var ext = gl.getExtension( 'EXT_texture_filter_anisotropic' ) ||
+                                gl.getExtension( 'MOZ_EXT_texture_filter_anisotropic' ) ||
+                                gl.getExtension( 'WEBKIT_EXT_texture_filter_anisotropic' );
+                            gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, settings.anisotropy);
+                        }
+
+                        gl.generateMipmap(gl.TEXTURE_2D);
+                    } else {
+                        if (settings.filter == 'linear') {
+                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                        } else {
+                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                        }
+                    }
+                } else {
+                    if (settings.filter == 'linear') {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                    } else {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                    }
+                }
+
                 gl.bindTexture(gl.TEXTURE_2D, null);
             }
         }
@@ -1212,24 +1258,35 @@ jFizz.loadImage = function(id, url) {
     return image;
 };
 
-jFizz.loadTexture = function(url) {
+jFizz.loadTexture = function(url, opts) {
     var id;
 
     id = gl.createTexture();
-    id.image = jFizz.loadImage(id, url);
+    if (opts === undefined) {
+        id.image = jFizz.loadImage(id, url);
+    } else {
+        id.image = jFizz.loadImage(id, url, opts);
+    }
 
     jFizz.info.memory.textures++;
     return id;
 };
 
 jFizz.initTextures = function() {
-    jFizz.myTexture[0] = getTexture('assets/images/qrcode.png');
+    jFizz.myTexture[0] = getTexture('assets/images/qrcode.png', {
+        mipmap: false,
+        filter: 'nearest'
+    });
     jFizz.myTexture[1] = getTexture('assets/images/qrcode.png');
 
-    function getTexture(url) {
+    function getTexture(url, opts) {
         var id;
 
-        id = jFizz.loadTexture(url);
+        if (opts === undefined) {
+            id = jFizz.loadTexture(url);
+        } else {
+            id = jFizz.loadTexture(url, opts);
+        }
         id.uuid = jFizz.Math.generateUUID();
 
         return id;
@@ -1293,8 +1350,6 @@ jFizz.drawScene = function() {
     jFizz.info.render.points = 0;
 
     jFizz.myScene.renderScene();
-
-    //console.log(jFizz.info.render.calls);
 };
 
 jFizz.animate = function() {
@@ -1435,7 +1490,7 @@ jFizz.ObjectScene.prototype = {
 
             object.visible = false;
             jFizz.checkAgainstFrustum(object, position, radius);
-            if (true && object.objType != 'sprite') {
+            if (object.visible == true && object.objType != 'sprite') {
                 if (object.objType == 'model') {
                     gl.disable(gl.CULL_FACE);
                     this.draw(object, 0);
@@ -1568,15 +1623,15 @@ jFizz.ObjectScene.prototype = {
             gl.uniform1f(program.uniforms['uOpacity'], opacity);
 
             var f = {
-                w: texture.image.width,
-                h: texture.image.height,
+                w: object.userdata.f.w,
+                h: object.userdata.f.h,
                 ul: vec2.fromValues(0, 0),
                 lr: vec2.fromValues(texture.image.width, texture.image.width)
             };
 
             var p = {
-                x: 200.0,
-                y: 0.0
+                x: object.userdata.p.x,
+                y: object.userdata.p.y
             };
 
             var d = {
