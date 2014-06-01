@@ -1,11 +1,12 @@
 {
     "metadata": {
         "type": "geometry",
+        "objName": "QR Ground",
         "objType": "plane"
     },
     "geometries": {
         "attributes": {
-            "faceType": "triangle",
+            "faceType": "triangles",
             "vertices": {
                 "itemSize": 3,
                 "type": "float",

@@ -1,12 +1,13 @@
 {
     "metadata": {
         "type": "geometry",
+        "objName": "Fur Elise Cube",
         "objType": "model",
         "actives": ["vertices", "uvs", "colors", "normals"]
     },
     "geometries": {
         "attributes": {
-            "faceType": "triangle",
+            "faceType": "triangles",
             "vertices": {
                 "itemSize": 3,
                 "type": "float",

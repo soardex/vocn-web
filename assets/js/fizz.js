@@ -250,7 +250,7 @@ jFizz.handleKeys = function(delta) {
 
     //! KEY_M
     if (jFizz.events.keyboard[77]) {
-        jFizz.myZoom += 0.1;
+        jFizz.sceneManager.changeScene('mySceneDebug');
     }
 };
 
@@ -736,9 +736,9 @@ jFizz.initTextures = function() {
         var id;
 
         if (opts === undefined) {
-            id = jFizz.loadTexture(url);
+            id = jFizz.Image.loadTexture(url);
         } else {
-            id = jFizz.loadTexture(url, opts);
+            id = jFizz.Image.loadTexture(url, opts);
         }
         id.uuid = jFizz.Math.generateUUID();
 
@@ -747,18 +747,27 @@ jFizz.initTextures = function() {
 };
 
 jFizz.initBuffers = function() {
-    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.sceneManager.scenes['mySceneDebug'], 0, 'center', {
+    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.sceneManager.scenes['mySceneLoading'], 0, 'center', {
         w: 440,
         h: 170,
         ul: 'default',
         lr: vec2.fromValues(440, 170)
-    }, 'default', true, false);
+    }, 'default', true, true, false);
+    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.sceneManager.scenes['mySceneDebug'], 0, 'center', {
+        w: 490,
+        h: 117,
+        ul: vec2.fromValues(8, 194),
+        lr: vec2.fromValues(498, 311)
+    }, 'default', true, true, false);
     //jFizz.GeometryCreator.generateCubeBuffer(jFizz.sceneManager.scenes['mySceneDebug'], 1, 1.0, 1.0, false);
     //jFizz.GeometryCreator.generateSkyDomeBuffer(jFizz.sceneManager.scenes['mySceneDebug'], 0);
 };
 
+jFizz.initSceneTasks = function() {
+};
+
 jFizz.GeometryCreator = {
-    generateSpriteQuadBuffer: function(scene, tid, position, dimension, opacity, transparent, useTextureDimension, priority) {
+    generateSpriteQuadBuffer: function(scene, tid, position, dimension, opacity, transparent, visible, useTextureDimension, priority) {
         var objectCount = scene.objects.length;
         var geometry = new jFizz.ObjectMesh();
         var texture = jFizz.sharedResources.textures[tid];
@@ -768,6 +777,7 @@ jFizz.GeometryCreator = {
         object.faceType = gl.TRIANGLE_FAN;
         object.lastTexCount = tid;
         object.objType = 'sprite';
+        object.visible = (visible === undefined) ? true : visible;
         object.priority = (priority === undefined) ? 75 : priority;
         object.buffers = [];
 
@@ -1285,63 +1295,45 @@ jFizz.checkAgainstFrustum = function(object, p, r) {
     object.visible = true;
 };
 
-jFizz.loadImage = function(id, url, opts) {
-    var image = new Image();
-    image.src = url;
-    image.onload = function() {
-        if (opts === undefined){
-            handleTexture(id);
-        } else {
-            handleTexture(id, opts);
-        }
+jFizz.Image = {
+    handleTexture: function(texture, image, opts) {
+        if (texture !== undefined) {
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-        function handleTexture(texture, opts) {
-            if (texture !== undefined) {
-                gl.bindTexture(gl.TEXTURE_2D, texture);
-                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            var settings = {
+                mipmap: true,
+                filter: 'linear',
+                anisotropy: 6
+            };
 
-                var settings = {
-                    mipmap: true,
-                    filter: 'linear',
-                    anisotropy: 6
-                };
+            if (opts !== undefined) {
+                settings.mipmap = (opts.mipmap === undefined) ? settings.mipmap : opts.mipmap;
+                settings.filter = (opts.filter === undefined) ? settings.filter : opts.filter;
+                settings.anisotropy = (opts.anisotropy === undefined) ? settings.anisotropy : opts.anisotropy;
+            }
 
-                if (opts !== undefined) {
-                    settings.mipmap = (opts.mipmap === undefined) ? settings.mipmap : opts.mipmap;
-                    settings.filter = (opts.filter === undefined) ? settings.filter : opts.filter;
-                    settings.anisotropy = (opts.anisotropy === undefined) ? settings.anisotropy : opts.anisotropy;
-                }
-
-                if (jFizz.Math.isPowerOfTwo(image.width) && jFizz.Math.isPowerOfTwo(image.height)) {
-                    if (settings.mipmap) {
-                        if (settings.filter == 'linear') {
-                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-                        } else {
-                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST);
-                        }
-
-                        if (settings.anisotropy !== undefined) {
-                            var ext = gl.getExtension( 'EXT_texture_filter_anisotropic' ) ||
-                                gl.getExtension( 'MOZ_EXT_texture_filter_anisotropic' ) ||
-                                gl.getExtension( 'WEBKIT_EXT_texture_filter_anisotropic' );
-                            gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, settings.anisotropy);
-                        }
-
-                        gl.generateMipmap(gl.TEXTURE_2D);
+            if (jFizz.Math.isPowerOfTwo(image.width) && jFizz.Math.isPowerOfTwo(image.height)) {
+                if (settings.mipmap) {
+                    if (settings.filter == 'linear') {
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
                     } else {
-                        if (settings.filter == 'linear') {
-                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-                        } else {
-                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-                        }
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST);
                     }
+
+                    if (settings.anisotropy !== undefined) {
+                        var ext = gl.getExtension( 'EXT_texture_filter_anisotropic' ) ||
+                            gl.getExtension( 'MOZ_EXT_texture_filter_anisotropic' ) ||
+                            gl.getExtension( 'WEBKIT_EXT_texture_filter_anisotropic' );
+                        gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, settings.anisotropy);
+                    }
+
+                    gl.generateMipmap(gl.TEXTURE_2D);
                 } else {
                     if (settings.filter == 'linear') {
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -1351,27 +1343,59 @@ jFizz.loadImage = function(id, url, opts) {
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
                     }
                 }
-
-                gl.bindTexture(gl.TEXTURE_2D, null);
+            } else {
+                if (settings.filter == 'linear') {
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                } else {
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                }
             }
+
+            gl.bindTexture(gl.TEXTURE_2D, null);
         }
-    };
+    },
+    loadImage: function(id, url, opts) {
+        var image = new Image();
+        image.src = url;
+        image.onload = function() {
+            if (opts === undefined){
+                jFizz.Image.handleTexture(id, image);
+            } else {
+                jFizz.Image.handleTexture(id, image, opts);
+            }
+        };
 
-    return image;
-};
+        return image;
+    },
+    loadTexture: function(url, opts) {
+        var id;
 
-jFizz.loadTexture = function(url, opts) {
-    var id;
+        id = gl.createTexture();
+        if (opts === undefined) {
+            id.image = jFizz.Image.loadImage(id, url);
+        } else {
+            id.image = jFizz.Image.loadImage(id, url, opts);
+        }
 
-    id = gl.createTexture();
-    if (opts === undefined) {
-        id.image = jFizz.loadImage(id, url);
-    } else {
-        id.image = jFizz.loadImage(id, url, opts);
+        jFizz.info.memory.textures++;
+        return id;
+    },
+    createTexture: function(width, height, color) {
+        var size = width * height;
+        var data = new Uint8Array( 3 * size );
+
+        var r = Math.floor(color[0] * 255);
+        var g = Math.floor(color[1] * 255);
+        var b = Math.floor(color[2] * 255);
+
+        for (var i = 0; i < size; i ++) {
+            data[i * 3] = r;
+            data[i * 3 + 1] = g;
+            data[i * 3 + 2] = b;
+        }
     }
-
-    jFizz.info.memory.textures++;
-    return id;
 };
 
 jFizz.translate = function(mat, vec) {
@@ -1403,10 +1427,6 @@ jFizz.drawScene = function() {
 
     mat4.identity(jFizz.shader.matrices['model']);
     mat4.multiply(jFizz.shader.matrices['modelview'], jFizz.shader.matrices['view'], jFizz.shader.matrices['model']);
-
-    for (var i = 0, l = jFizz.myAssets.length; i < l; i++) {
-        if (jFizz.sceneManager.scenes['mySceneDebug'].objects[i] === undefined) return;
-    }
 
     for (var i = 0, l = jFizz.shader.programs.length; i < l; i++) {
         var program = jFizz.shader.programs[i];
@@ -1490,9 +1510,9 @@ jFizz.SceneManager = function() {
     this.uuid = jFizz.Math.generateUUID();
     this.scenes = {};
     this.info = {
-        scenes: 0
+        scenes: 0,
     };
-    this.current = 'mySceneDebug';
+    this.current = 'mySceneLoading';
 };
 
 jFizz.SceneManager.prototype = {
@@ -1531,6 +1551,11 @@ jFizz.SceneManager.prototype = {
     },
     render: function() {
         var c = this.current;
+
+        for (var i = 0, l = this.scenes[c].info.assets; i < l; i++) {
+            if (this.scenes[c].objects[i] === undefined) return;
+        }
+
         if (this.scenes[c] !== undefined) {
             this.scenes[c].renderScene();
         }
@@ -1591,6 +1616,9 @@ jFizz.ObjectMesh.prototype = {
 jFizz.ObjectScene = function() {
     this.uuid = jFizz.Math.generateUUID();
     this.objects = [];
+    this.info = {
+        assets: 0
+    };
 };
 
 jFizz.ObjectScene.prototype = {
@@ -1629,7 +1657,7 @@ jFizz.ObjectScene.prototype = {
                 object.buffers = [];
                 object.lastTexCount = jFizz.sharedResources.textures.length;
                 for (var n = 0, o = object.textures.length; n < o; n++) {
-                    jFizz.sharedResources.textures[object.lastTexCount + n] = jFizz.loadTexture('assets/images/' + object.images[n].url);
+                    jFizz.sharedResources.textures[object.lastTexCount + n] = jFizz.Image.loadTexture('assets/images/' + object.images[n].url);
                     jFizz.sharedResources.textures[object.lastTexCount + n].uuid = object.images[n].uuid;
 
                     var buffers = {};
@@ -1674,11 +1702,14 @@ jFizz.ObjectScene.prototype = {
             var radius = 1.0;
 
             object.matrix = identity;
-            object.visible = false;
 
-            jFizz.checkAgainstFrustum(object, position, radius);
-            if (object.visible == true && object.objType != 'sprite') {
-                this.postMorph(object);
+            if (object.objType != 'sprite') {
+                object.visible = false;
+
+                jFizz.checkAgainstFrustum(object, position, radius);
+                if (object.visible) {
+                    this.postMorph(object);
+                }
             }
         }
 
@@ -1686,9 +1717,11 @@ jFizz.ObjectScene.prototype = {
         for (var k = 0, c = this.objects.length; k < c; k++) {
             var object = this.objects[k];
             if (object.objType == 'sprite') {
-                gl.disable(gl.CULL_FACE);
-                this.drawSprite(object, 2);
-                gl.enable(gl.CULL_FACE);
+                if (object.visible == true) {
+                    gl.disable(gl.CULL_FACE);
+                    this.drawSprite(object, 2);
+                    gl.enable(gl.CULL_FACE);
+                }
             }
         }
     },
@@ -1974,6 +2007,7 @@ jFizz.loadJSONModel = function(url, callback) {
                 var result;
                 result = parse(data);
 
+                result.geometry.objName = data.metadata.objName;
                 result.geometry.objType = data.metadata.objType;
                 result.geometry.images = result.images;
                 result.geometry.textures = result.textures;
@@ -2038,11 +2072,15 @@ jFizz.loadJSONModel = function(url, callback) {
 
                 var faceType = -1;
                 switch (d.geometries.attributes.faceType) {
-                    case 'line':
+                    case 'lines':
+                        faceType = gl.LINES;
                         break;
                     default:
-                    case 'triangle':
+                    case 'triangles':
                         faceType = gl.TRIANGLES;
+                        break;
+                    case 'triangle_fan':
+                        faceType = gl.TRIANGLE_FAN;
                         break;
                 }
 
@@ -2081,16 +2119,25 @@ jFizz.main = function(c) {
     jFizz.initPhysics();
 
     jFizz.sceneManager = new jFizz.SceneManager();
+    jFizz.sceneManager.add('mySceneLoading', new jFizz.ObjectScene);
     jFizz.sceneManager.add('mySceneDebug', new jFizz.ObjectScene);
 
     jFizz.initTextures();
     jFizz.initBuffers();
+    jFizz.initSceneTasks();
 
     jFizz.myAssets.each(function (item, index) {
         jFizz.loadJSONModel(item, function(geometry, materials) {
             geometry.initialized = false;
 
-            jFizz.sceneManager.scenes['mySceneDebug'].objects.push(geometry);
+            if (geometry.objName == 'Fur Elise Cube') {
+                jFizz.sceneManager.scenes['mySceneLoading'].objects.push(geometry);
+                jFizz.sceneManager.scenes['mySceneLoading'].info.assets++;
+            } else {
+                jFizz.sceneManager.scenes['mySceneDebug'].objects.push(geometry);
+                jFizz.sceneManager.scenes['mySceneDebug'].info.assets++;
+            }
+
             if (materials !== undefined) {
                 jFizz.sharedResources.materials.push(materials);
             }
