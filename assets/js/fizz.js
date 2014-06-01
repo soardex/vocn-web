@@ -746,13 +746,13 @@ jFizz.initTextures = function() {
 };
 
 jFizz.initBuffers = function() {
-    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.sceneManager.scenes['mySceneLoading'], 0, 'center', {
+    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.sceneManager.scenes['mySceneLoading'], 'object01', 0, 'center', {
         w: 440,
         h: 170,
         ul: 'default',
         lr: vec2.fromValues(440, 170)
     }, 'default', true, false, false);
-    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.sceneManager.scenes['mySceneLoading'], 0, 'center', {
+    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.sceneManager.scenes['mySceneLoading'], 'object02', 0, 'center', {
         w: 490,
         h: 117,
         ul: vec2.fromValues(8, 194),
@@ -765,9 +765,15 @@ jFizz.initBuffers = function() {
 jFizz.initSceneTasks = function() {
     var scene = jFizz.sceneManager.scenes['mySceneLoading'];
     scene.userdata = {
-        opacity: 1.0,
+        opacity: 0.0,
         tick: {
             last: 0,
+        },
+        fade: {
+            direction: 1,
+        },
+        finished: {
+            count: 0,
         }
     };
     scene.preMorph = function(object, matrix) {
@@ -787,13 +793,51 @@ jFizz.initSceneTasks = function() {
         }
     };
     scene.animateScene = function(delta) {
-        if (scene.userdata.tick.last < 200) {
+        var span = 5000;
+        var time = scene.userdata.tick.last;
+        time += delta;
+
+        if (time < span) {
+            scene.userdata.opacity += (scene.userdata.fade.direction) * (delta / span);
+            scene.userdata.opacity = clamp01(scene.userdata.opacity);
+        } else if (time > span && time < (span * 2)) {
+            scene.userdata.opacity += (-scene.userdata.fade.direction) * (delta / span);
+            scene.userdata.opacity = clamp01(scene.userdata.opacity);
+        } else {
+            if (scene.userdata.finished.count < 2) {
+                if (scene.userdata.finished.count == 0) {
+                    for (var i = 0, l = scene.objects.length; i < l; i++) {
+                        if (scene.objects[i].objName == 'object02') {
+                            scene.objects[i].visible = false;
+                            time = 0;
+                        }
+                    }
+
+                    for (var i = 0, l = scene.objects.length; i < l; i++) {
+                        if (scene.objects[i].objName == 'object01') {
+                            scene.objects[i].visible = true;
+                            console.log('hello');
+                        }
+                    }
+                }
+
+                scene.userdata.finished.count++;
+            } else {
+                jFizz.sceneManager.changeScene('mySceneDebug');
+            }
+        }
+
+        scene.userdata.tick.last = time;
+
+        //! NOTE: clamp to [0..1]
+        function clamp01(value) {
+            return Math.max(0, Math.min(1, value));
         }
     };
 };
 
 jFizz.GeometryCreator = {
-    generateSpriteQuadBuffer: function(scene, tid, position, dimension, opacity, transparent, visible, useTextureDimension, priority) {
+    generateSpriteQuadBuffer: function(scene, name, tid, position, dimension, opacity, transparent, visible, useTextureDimension, priority) {
         var objectCount = scene.objects.length;
         var geometry = new jFizz.ObjectMesh();
         var texture = jFizz.sharedResources.textures[tid];
@@ -802,6 +846,7 @@ jFizz.GeometryCreator = {
         var object = scene.objects[objectCount];
         object.faceType = gl.TRIANGLE_FAN;
         object.lastTexCount = tid;
+        object.objName = (name === undefined) ? 'object' : name;
         object.objType = 'sprite';
         object.visible = (visible === undefined) ? true : visible;
         object.priority = (priority === undefined) ? 75 : priority;
