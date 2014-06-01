@@ -411,7 +411,6 @@ var extend = {
     ].join('\n')
 };
 
-
 jFizz.shaderCreator = {
     'basic': {
         vertexShader: [
@@ -752,8 +751,8 @@ jFizz.initBuffers = function() {
         h: 170,
         ul: 'default',
         lr: vec2.fromValues(440, 170)
-    }, 'default', true, true, false);
-    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.sceneManager.scenes['mySceneDebug'], 0, 'center', {
+    }, 'default', true, false, false);
+    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.sceneManager.scenes['mySceneLoading'], 0, 'center', {
         w: 490,
         h: 117,
         ul: vec2.fromValues(8, 194),
@@ -764,6 +763,33 @@ jFizz.initBuffers = function() {
 };
 
 jFizz.initSceneTasks = function() {
+    var scene = jFizz.sceneManager.scenes['mySceneLoading'];
+    scene.userdata = {
+        opacity: 1.0,
+        tick: {
+            last: 0,
+        }
+    };
+    scene.preMorph = function(object, matrix) {
+        var position = [0.0, 0.0, 5.0];
+        if (object.objType == 'model') {
+            mat4.translate(matrix, matrix, position);
+            mat4.rotate(matrix, matrix, jFizz.Math.degToRad(jFizz.myRotX), [1.0, 0.0, 0.0]);
+            mat4.rotate(matrix, matrix, jFizz.Math.degToRad(jFizz.myRotY), [0.0, 1.0, 0.0]);
+        }
+        return position;
+    };
+    scene.postOrthoMorph = function(object) {
+        if (object.objType == 'sprite') {
+            gl.disable(gl.CULL_FACE);
+            this.drawSprite(object, 2, scene.userdata.opacity);
+            gl.enable(gl.CULL_FACE);
+        }
+    };
+    scene.animateScene = function(delta) {
+        if (scene.userdata.tick.last < 200) {
+        }
+    };
 };
 
 jFizz.GeometryCreator = {
@@ -1570,6 +1596,7 @@ jFizz.ObjectMesh = function() {
         min: vec3.create(),
         max: vec3.create()
     };
+    this.userdata = null;
 };
 
 jFizz.ObjectMesh.prototype = {
@@ -1619,6 +1646,7 @@ jFizz.ObjectScene = function() {
     this.info = {
         assets: 0
     };
+    this.userdata = null;
 };
 
 jFizz.ObjectScene.prototype = {
@@ -1644,6 +1672,13 @@ jFizz.ObjectScene.prototype = {
             gl.cullFace(gl.BACK);
         } else {
             this.draw(object, 0);
+        } 
+    },
+    postOrthoMorph: function(object) {
+        if (object.objType == 'sprite') {
+            gl.disable(gl.CULL_FACE);
+            this.drawSprite(object, 2);
+            gl.enable(gl.CULL_FACE);
         }
     },
     animateScene: function(delta) {
@@ -1716,12 +1751,8 @@ jFizz.ObjectScene.prototype = {
         //! NOTE: render last ortho elements
         for (var k = 0, c = this.objects.length; k < c; k++) {
             var object = this.objects[k];
-            if (object.objType == 'sprite') {
-                if (object.visible == true) {
-                    gl.disable(gl.CULL_FACE);
-                    this.drawSprite(object, 2);
-                    gl.enable(gl.CULL_FACE);
-                }
+            if (object.visible) {
+                this.postOrthoMorph(object);
             }
         }
     },
@@ -1829,7 +1860,7 @@ jFizz.ObjectScene.prototype = {
         materials = [];
         gl.useProgram(null);
     },
-    drawSprite: function(object, pid) {
+    drawSprite: function(object, pid, opc) {
         var program = jFizz.shader.programs[pid];
 
         jFizz.shader.matrices['projection'] = jFizz.shader.constants['ortho'];
@@ -1852,7 +1883,7 @@ jFizz.ObjectScene.prototype = {
         for (var n = 0, o = object.buffers.length; n < o; n++) {
             var buffet = object.buffers[n];
             var diffuse = jFizz.setHex(materials[n].color.diffuse);
-            var opacity = materials[n].opacity;
+            var opacity = (opc === undefined) ? materials[n].opacity : opc;
             var texture = jFizz.sharedResources.textures[object.lastTexCount + n];
 
             gl.uniform3fv(program.uniforms['uDiffuseColor'], diffuse);
