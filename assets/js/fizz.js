@@ -91,8 +91,8 @@ var jFizz = {
     frustum: {
         planes: [],
     },
-    scenes: {},
     physics: {},
+    sceneManager: null,
     sharedResources: {
         textures: [],
     },
@@ -257,20 +257,20 @@ jFizz.handleKeys = function(delta) {
 
 jFizz.handleMouse = function(delta) {
     if (jFizz.events.mouse.button) {
-        if (jFizz.events.mouse.position.x >= (gl.viewportWidth / 2) + 128) {
+        if (jFizz.events.mouse.position.x >= (gl.viewportWidthHalf) + 128) {
             jFizz.activeCamera.angle += 7.0 * (delta / 1000.0);
             jFizz.activeCamera.point[0] = Math.sin(jFizz.activeCamera.angle);
             jFizz.activeCamera.point[2] = -Math.cos(jFizz.activeCamera.angle);
-        } else if (jFizz.events.mouse.position.x < (gl.viewportWidth / 2) - 128) {
+        } else if (jFizz.events.mouse.position.x < (gl.viewportWidthHalf) - 128) {
             jFizz.activeCamera.angle -= 7.0 * (delta / 1000.0);
             jFizz.activeCamera.point[0] = Math.sin(jFizz.activeCamera.angle);
             jFizz.activeCamera.point[2] = -Math.cos(jFizz.activeCamera.angle);
         }
 
-        if (jFizz.events.mouse.position.y >= (gl.viewportHeight / 2) + 100) {
+        if (jFizz.events.mouse.position.y >= (gl.viewportHeightHalf) + 100) {
             jFizz.activeCamera.look -= 7.0 * (delta / 1000.0);
             jFizz.activeCamera.point[1] = Math.sin(jFizz.activeCamera.look);
-        } else if (jFizz.events.mouse.position.y < (gl.viewportHeight / 2) - 128) {
+        } else if (jFizz.events.mouse.position.y < (gl.viewportHeightHalf) - 128) {
             jFizz.activeCamera.look += 7.0 * (delta / 1000.0);
             jFizz.activeCamera.point[1] = Math.sin(jFizz.activeCamera.look);
         }
@@ -511,7 +511,9 @@ jFizz.init = function(canvas) {
         canvas.height = self.innerHeight;
 
         gl.viewportWidth = canvas.width;
+        gl.viewportWidthHalf = canvas.width / 2;
         gl.viewportHeight = canvas.height;
+        gl.viewportHeightHalf = canvas.height / 2;
     } catch (e) {
         jFizz.log(jFizz.tag.ERROR, 'Description: ' + e.message);
     }
@@ -746,9 +748,14 @@ jFizz.initTextures = function() {
 };
 
 jFizz.initBuffers = function() {
-    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.scenes['myScene'], 0, 'default', 'default', 'default', true, false);
-    jFizz.GeometryCreator.generateCubeBuffer(jFizz.scenes['myScene'], 1, 1.0, 1.0, false);
-    //jFizz.GeometryCreator.generateSkyDomeBuffer(jFizz.scenes['myScene'], 0);
+    jFizz.GeometryCreator.generateSpriteQuadBuffer(jFizz.sceneManager.scenes['myScene'], 0, 'center', {
+        w: 440,
+        h: 170,
+        ul: 'default',
+        lr: vec2.fromValues(440, 170)
+    }, 'default', true, false);
+    jFizz.GeometryCreator.generateCubeBuffer(jFizz.sceneManager.scenes['myScene'], 1, 1.0, 1.0, false);
+    //jFizz.GeometryCreator.generateSkyDomeBuffer(jFizz.sceneManager.scenes['myScene'], 0);
 };
 
 jFizz.GeometryCreator = {
@@ -772,6 +779,11 @@ jFizz.GeometryCreator = {
                 ul: vec2.fromValues(0, 0),
                 lr: vec2.fromValues(texture.image.width, texture.image.height)
             };
+        } else {
+            dimension.w = (dimension.w === undefined || dimension.w == 'default') ? texture.image.width : dimension.w;
+            dimension.h = (dimension.h === undefined || dimension.h == 'default') ? texture.image.height : dimension.h;
+            dimension.ul = (dimension.ul === undefined || dimension.ul == 'default') ? vec2.fromValues(0, 0) : dimension.ul;
+            dimension.lr = (dimension.lr === undefined || dimension.lr == 'default') ? vec2.fromValues(texture.image.width, texture.image.height) : dimension.lr;
         }
 
         if (useTextureDimension !== undefined) {
@@ -779,6 +791,15 @@ jFizz.GeometryCreator = {
                 f.w = texture.image.width;
                 f.h = texture.image.height;
                 f.lr = vec2.fromValues(texture.image.width, texture.image.height);
+            }
+        }
+
+        if (position === undefined || position == 'default' || position == 'center') {
+            if (position == 'center') {
+                position = vec2.fromValues(gl.viewportWidthHalf - (dimension.w / 2),
+                                           gl.viewportHeightHalf - (dimension.h / 2));
+            } else {
+                position = vec2.fromValues(0.0, 0.0);
             }
         }
 
@@ -790,8 +811,8 @@ jFizz.GeometryCreator = {
         };
 
         var p = {
-            x: (position === undefined || position == 'default') ? 0.0 : position[0],
-            y: (position === undefined || position == 'default') ? 0.0 : position[1]
+            x: position[0],
+            y: position[1]
         };
 
         var d = {
@@ -1364,7 +1385,7 @@ jFizz.drawScene = function() {
     mat4.multiply(jFizz.shader.matrices['modelview'], jFizz.shader.matrices['view'], jFizz.shader.matrices['model']);
 
     for (var i = 0, l = jFizz.myAssets.length; i < l; i++) {
-        if (jFizz.scenes['myScene'].objects[i] === undefined) return;
+        if (jFizz.sceneManager.scenes['myScene'].objects[i] === undefined) return;
     }
 
     for (var i = 0, l = jFizz.shader.programs.length; i < l; i++) {
@@ -1381,7 +1402,7 @@ jFizz.drawScene = function() {
     jFizz.info.render.indices = 0;
     jFizz.info.render.points = 0;
 
-    jFizz.scenes['myScene'].renderScene();
+    jFizz.sceneManager.scenes['myScene'].renderScene();
 };
 
 jFizz.animate = function() {
@@ -1441,6 +1462,45 @@ jFizz.Math = {
     },
     isPowerOfTwo: function(v) {
         return (v & (v - 1)) === 0 && v !== 0;
+    }
+};
+
+jFizz.SceneManager = function() {
+    this.uuid = jFizz.Math.generateUUID();
+    this.scenes = {};
+    this.info = {
+        scenes: 0
+    };
+    this.current = 'default';
+};
+
+jFizz.SceneManager.prototype = {
+    constructor: jFizz.SceneManager,
+    changeScene: function(s) {
+        if (this.scenes[s] !== undefined) {
+            this.current = s;
+        }
+    },
+    add: function(s, scene) {
+        if (scene === undefined && !(scene instanceof jFizz.ObjectScene)) {
+            return;
+        }
+
+        if (this.scenes[s] === undefined) {
+            this.scenes[s] = scene;
+            this.info.scenes++;
+        }
+    },
+    remove: function(s) {
+        if (this.scene[s] !== undefined) {
+            if (s != this.current) {
+                delete this.scene[s];
+
+                if (this.info.scenes > 0) {
+                    this.info.scenes--;
+                }
+            }
+        }
     }
 };
 
@@ -1908,7 +1968,8 @@ jFizz.main = function(c) {
     jFizz.initShaders();
     jFizz.initPhysics();
 
-    jFizz.scenes['myScene'] = new jFizz.ObjectScene();
+    jFizz.sceneManager = new jFizz.SceneManager();
+    jFizz.sceneManager.add('myScene', new jFizz.ObjectScene);
 
     jFizz.initTextures();
     jFizz.initBuffers();
@@ -1921,7 +1982,7 @@ jFizz.main = function(c) {
                 geometry.materials = materials;
             }
 
-            jFizz.scenes['myScene'].objects.push(geometry);
+            jFizz.sceneManager.scenes['myScene'].objects.push(geometry);
 
             //! NOTE: clear buffers
             geometry = {};
