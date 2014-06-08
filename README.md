@@ -1,4 +1,4 @@
-# voc-web
+# vocn-web
 
 ```
       ___                       ___           ___     
@@ -14,7 +14,7 @@
                                \/__/         \/__/    
 ```
 
-voc-web is an extension to the voc project that I created for the purpose of porting opengl on different programming platforms.
+vocn-web is an extension to the vocn project that I created for the purpose of porting opengl on different programming platforms.
 
 ![screenshot](https://drive.google.com/uc?export=view&id=0B-blOoIU6Jp5VnRJTTRUMTJacDg "screenshot")
 
